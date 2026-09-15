@@ -1,0 +1,752 @@
+####################################################################
+# RainMaster — ESPHome-variant
+#
+# Zelfde hardware als de custom firmware in de repo-root:
+#   MCU:     ESP32-S3-WROOM-1U-N8R2 (8 MB flash, 2 MB quad-SPI PSRAM)
+#   Display: 4" ILI9488 SPI TFT, 8-pins module met XPT2046-touch en SD
+#
+# Verschillen t.o.v. de custom C++ firmware:
+#  - Home Assistant-integratie via de native ESPHome API (automatische
+#    discovery) in plaats van handmatige MQTT-discovery-topics.
+#  - Geen los webconfig-formulier: WiFi-fallback + captive portal komen
+#    standaard mee via ESPHome zelf; verdere instelling verloopt via de
+#    ESPHome-integratie in Home Assistant (of het toestel opnieuw
+#    flashen met andere WiFi-gegevens in secrets.yaml).
+#  - Zone-looptijden wijzig je via de number-entiteiten in Home
+#    Assistant, niet via het touchscreen — dat kon in de originele
+#    firmware ook niet.
+#
+# BELANGRIJK: de SPI-pinnen hieronder zijn PLACEHOLDERS. Pas ze aan
+# naar je eigen bedrading voor je flasht. Zie ook README.md.
+####################################################################
+
+substitutions:
+  name: "rainmaster"
+  friendly_name: "RainMaster"
+  fw_version: "v2.0.0-esphome"
+
+  # ---- SPI-buspinnen (gedeeld door display, touch) ----
+  pin_sclk: GPIO12
+  pin_mosi: GPIO11
+  pin_miso: GPIO13
+  # ---- Display ----
+  pin_tft_cs: GPIO10
+  pin_tft_dc: GPIO9
+  pin_tft_rst: GPIO8
+  pin_backlight: GPIO38
+  # ---- Touch (XPT2046) ----
+  pin_touch_cs: GPIO4
+  # pin_touch_irq: GPIO7        # optioneel; zonder IRQ wordt gepolld
+  # ---- SD-kaart (gereserveerd, momenteel ongebruikt) ----
+  pin_sd_cs: GPIO5
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: false
+  min_version: "2025.5.0"
+  # Splash 2,5s tonen bij opstarten, daarna naar het startscherm
+  on_boot:
+    priority: -100
+    then:
+      - lvgl.page.show: page_splash
+      - delay: 2500ms
+      - script.execute: show_home
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+# N8R2 = 2 MB PSRAM in quad-SPI modus (niet octal)
+psram:
+  mode: quad
+  speed: 40MHZ
+
+logger:
+
+api:
+  id: api_server
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  id: wifi_comp
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "RainMaster-Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+####################################################################
+# Backlight (GPIO38, on/off zoals in de originele firmware)
+####################################################################
+output:
+  - platform: gpio
+    id: backlight_gpio
+    pin: ${pin_backlight}
+
+light:
+  - platform: binary
+    id: backlight
+    output: backlight_gpio
+    restore_mode: ALWAYS_ON
+
+####################################################################
+# Display + touch
+####################################################################
+spi:
+  id: tft_bus
+  clk_pin: ${pin_sclk}
+  mosi_pin: ${pin_mosi}
+  miso_pin: ${pin_miso}
+
+display:
+  - platform: ili9xxx
+    id: tft
+    model: ILI9488
+    spi_id: tft_bus
+    cs_pin: ${pin_tft_cs}
+    dc_pin: ${pin_tft_dc}
+    reset_pin: ${pin_tft_rst}
+    rotation: 90
+    color_order: BGR      # wissel naar RGB als kleuren omgedraaid ogen
+    invert_colors: false
+    auto_clear_enabled: false
+    update_interval: never   # LVGL tekent en flusht zelf
+
+touchscreen:
+  platform: xpt2046
+  id: touch
+  display: tft
+  spi_id: tft_bus
+  cs_pin: ${pin_touch_cs}
+  # interrupt_pin: ${pin_touch_irq}
+  update_interval: 50ms
+  # Startwaarden overgenomen uit de touchkalibratie van de C++ firmware
+  # (config.h: TOUCH_CAL_X0/X1/Y0/Y1). Coördinatensystemen verschillen
+  # per library — controleer/herijk met de x_raw/y_raw-waarden die
+  # on_touch hieronder logt, en pas zo nodig calibration/transform aan.
+  calibration:
+    x_min: 231
+    x_max: 3663
+    y_min: 253
+    y_max: 3471
+  transform:
+    swap_xy: false
+    mirror_x: false
+    mirror_y: false
+  on_touch:
+    - lambda: |-
+        ESP_LOGD("touch", "x=%d y=%d (raw x=%d y=%d)", touch.x, touch.y, touch.x_raw, touch.y_raw);
+  on_release:
+    - if:
+        condition:
+          lvgl.is_paused:
+        then:
+          - lvgl.resume:
+          - lvgl.widget.redraw:
+          - light.turn_on: backlight
+
+####################################################################
+# Beregeningslogica — zones, auto-modus, looptijden
+# (worden automatisch als entiteiten in Home Assistant ontdekt)
+####################################################################
+globals:
+  - id: running
+    type: bool
+    initial_value: "false"
+  - id: cycle_mode
+    type: bool
+    initial_value: "false"
+  - id: active_zone
+    type: int
+    initial_value: "-1"
+  - id: zone_start_ms
+    type: uint32_t
+    initial_value: "0"
+  - id: zone_duration_s
+    type: uint32_t
+    initial_value: "0"
+  - id: pending_next_zone
+    type: int
+    initial_value: "0"
+
+number:
+  - platform: template
+    name: "Zone 1 looptijd"
+    id: zone1_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 2 looptijd"
+    id: zone2_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 3 looptijd"
+    id: zone3_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 4 looptijd"
+    id: zone4_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 5 looptijd"
+    id: zone5_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 6 looptijd"
+    id: zone6_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 7 looptijd"
+    id: zone7_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Zone 8 looptijd"
+    id: zone8_runtime
+    icon: mdi:timer-outline
+    unit_of_measurement: s
+    min_value: 10
+    max_value: 7200
+    step: 10
+    initial_value: 600
+    optimistic: true
+    restore_value: true
+
+switch:
+  - platform: template
+    name: "Automatische modus"
+    id: auto_mode
+    icon: mdi:autorenew
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: template
+    name: "Zone 1"
+    id: zone1_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 0, seconds: !lambda "return (int) id(zone1_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 2"
+    id: zone2_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 1, seconds: !lambda "return (int) id(zone2_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 3"
+    id: zone3_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 2, seconds: !lambda "return (int) id(zone3_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 4"
+    id: zone4_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 3, seconds: !lambda "return (int) id(zone4_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 5"
+    id: zone5_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 4, seconds: !lambda "return (int) id(zone5_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 6"
+    id: zone6_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 5, seconds: !lambda "return (int) id(zone6_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 7"
+    id: zone7_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 6, seconds: !lambda "return (int) id(zone7_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+  - platform: template
+    name: "Zone 8"
+    id: zone8_switch
+    icon: mdi:sprinkler
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: {id: start_zone, zone: 7, seconds: !lambda "return (int) id(zone8_runtime).state;", cycle: false}
+    turn_off_action:
+      - script.execute: stop_all
+
+sensor:
+  - platform: template
+    name: "Resterende tijd"
+    id: remaining_seconds
+    unit_of_measurement: s
+    icon: mdi:timer-sand
+    accuracy_decimals: 0
+
+text_sensor:
+  - platform: template
+    name: "Beregening status"
+    id: state_text
+  - platform: template
+    name: "Actieve zone"
+    id: active_zone_text
+
+script:
+  - id: start_zone
+    mode: restart
+    parameters:
+      zone: int
+      seconds: int
+      cycle: bool
+    then:
+      - lambda: |-
+          static switch_::Switch *zones[8] = {
+            id(zone1_switch), id(zone2_switch), id(zone3_switch), id(zone4_switch),
+            id(zone5_switch), id(zone6_switch), id(zone7_switch), id(zone8_switch)
+          };
+          for (int i = 0; i < 8; i++) {
+            if (i != zone && zones[i]->state) zones[i]->turn_off();
+          }
+          if (!zones[zone]->state) zones[zone]->turn_on();
+          id(active_zone) = zone;
+          id(running) = true;
+          id(cycle_mode) = cycle;
+          id(zone_start_ms) = millis();
+          id(zone_duration_s) = (uint32_t) seconds;
+          id(state_text)->publish_state(cycle ? "cycle" : "manual");
+          id(active_zone_text)->publish_state(to_string(zone + 1));
+      - script.execute: show_home
+      - delay: !lambda "return (uint32_t) seconds * 1000;"
+      - if:
+          condition:
+            lambda: "return cycle;"
+          then:
+            - script.execute: advance_cycle
+          else:
+            - script.execute: stop_all
+
+  - id: advance_cycle
+    then:
+      - lambda: "id(pending_next_zone) = id(active_zone) + 1;"
+      - if:
+          condition:
+            lambda: "return id(pending_next_zone) >= 8;"
+          then:
+            - script.execute: stop_all
+          else:
+            - script.execute:
+                id: start_zone
+                zone: !lambda "return id(pending_next_zone);"
+                seconds: !lambda |-
+                  static number::Number *nums[8] = {
+                    id(zone1_runtime), id(zone2_runtime), id(zone3_runtime), id(zone4_runtime),
+                    id(zone5_runtime), id(zone6_runtime), id(zone7_runtime), id(zone8_runtime)
+                  };
+                  return (int) nums[id(pending_next_zone)]->state;
+                cycle: true
+
+  - id: stop_all
+    then:
+      - script.stop: start_zone
+      - lambda: |-
+          static switch_::Switch *zones[8] = {
+            id(zone1_switch), id(zone2_switch), id(zone3_switch), id(zone4_switch),
+            id(zone5_switch), id(zone6_switch), id(zone7_switch), id(zone8_switch)
+          };
+          for (int i = 0; i < 8; i++) if (zones[i]->state) zones[i]->turn_off();
+          id(running) = false;
+          id(cycle_mode) = false;
+          id(active_zone) = -1;
+          id(state_text)->publish_state("idle");
+          id(active_zone_text)->publish_state("-");
+      - sensor.template.publish:
+          id: remaining_seconds
+          state: 0
+      - script.execute: show_home
+
+  - id: start_cycle
+    then:
+      - if:
+          condition:
+            switch.is_on: auto_mode
+          then:
+            - script.execute:
+                id: start_zone
+                zone: 0
+                seconds: !lambda "return (int) id(zone1_runtime).state;"
+                cycle: true
+
+  - id: show_home
+    then:
+      - if:
+          condition:
+            lambda: "return id(running);"
+          then:
+            - lvgl.page.show: page_home_running
+          else:
+            - lvgl.page.show: page_home_idle
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          if (id(running)) {
+            uint32_t elapsed = millis() - id(zone_start_ms);
+            uint32_t duration_ms = id(zone_duration_s) * 1000UL;
+            uint32_t remaining = (elapsed >= duration_ms) ? 0 : (duration_ms - elapsed + 999) / 1000;
+            id(remaining_seconds)->publish_state(remaining);
+          }
+      - lvgl.label.update:
+          id: lbl_timer
+          text: !lambda |-
+            uint32_t r = (uint32_t) id(remaining_seconds)->state;
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%02u:%02u", r / 60, r % 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_active_zone
+          text: !lambda "return \"ZONE \" + to_string(id(active_zone) + 1);"
+      - lvgl.label.update: {id: lbl_zone1, text: !lambda "return \"Zone 1  \" + to_string((int) id(zone1_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone2, text: !lambda "return \"Zone 2  \" + to_string((int) id(zone2_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone3, text: !lambda "return \"Zone 3  \" + to_string((int) id(zone3_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone4, text: !lambda "return \"Zone 4  \" + to_string((int) id(zone4_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone5, text: !lambda "return \"Zone 5  \" + to_string((int) id(zone5_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone6, text: !lambda "return \"Zone 6  \" + to_string((int) id(zone6_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone7, text: !lambda "return \"Zone 7  \" + to_string((int) id(zone7_runtime).state / 60) + \"m\";"}
+      - lvgl.label.update: {id: lbl_zone8, text: !lambda "return \"Zone 8  \" + to_string((int) id(zone8_runtime).state / 60) + \"m\";"}
+      - lvgl.widget.update: {id: btn_zone1, bg_color: !lambda "return (id(running) && id(active_zone) == 0) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone2, bg_color: !lambda "return (id(running) && id(active_zone) == 1) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone3, bg_color: !lambda "return (id(running) && id(active_zone) == 2) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone4, bg_color: !lambda "return (id(running) && id(active_zone) == 3) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone5, bg_color: !lambda "return (id(running) && id(active_zone) == 4) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone6, bg_color: !lambda "return (id(running) && id(active_zone) == 5) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone7, bg_color: !lambda "return (id(running) && id(active_zone) == 6) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.widget.update: {id: btn_zone8, bg_color: !lambda "return (id(running) && id(active_zone) == 7) ? 0x1B5E20 : 0x404040;"}
+      - lvgl.label.update:
+          id: lbl_wifi
+          text: !lambda "return id(wifi_comp).is_connected() ? \"WiFi\" : \"!\";"
+          text_color: !lambda "return id(wifi_comp).is_connected() ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFF0000);"
+      - lvgl.label.update:
+          id: lbl_api
+          text: !lambda "return \"HA\";"
+          text_color: !lambda "return id(api_server).is_connected() ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFFA500);"
+      - lvgl.label.update:
+          id: lbl_auto_btn
+          text: !lambda "return id(auto_mode).state ? \"AUTO: AAN\" : \"AUTO: UIT\";"
+      - lvgl.label.update:
+          id: lbl_auto_status
+          text: !lambda "return id(auto_mode).state ? std::string(\"AUTOMATISCH\") : std::string(\"HANDMATIG\");"
+          text_color: !lambda "return id(auto_mode).state ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFFA500);"
+      - lvgl.widget.update:
+          id: btn_auto
+          bg_color: !lambda "return id(auto_mode).state ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"
+      - lvgl.label.update:
+          id: lbl_settings_ip
+          text: !lambda "return id(wifi_comp).is_connected() ? id(wifi_comp).get_ip_addresses()[0].str() : std::string(\"niet verbonden\");"
+      - lvgl.label.update:
+          id: lbl_settings_api
+          text: !lambda "return id(api_server).is_connected() ? std::string(\"verbonden\") : std::string(\"niet verbonden\");"
+
+####################################################################
+# Touchscreen-UI (LVGL) — Splash / Home / Zones / Instellingen,
+# analoog aan de schermen in de originele firmware (main.cpp)
+####################################################################
+lvgl:
+  displays:
+    - tft
+  touchscreens:
+    - touch
+  color_depth: 16
+  bg_color: 0x000000
+  default_font: montserrat_14
+  on_idle:
+    timeout: 60s
+    then:
+      - light.turn_off: backlight
+      - lvgl.pause:
+          show_snow: false
+
+  pages:
+    - id: page_splash
+      # Verticale water->groen gradient met een druppel-logo, zelfde
+      # natuurlijke uitstraling als het splashscherm van de C++-firmware.
+      bg_color: 0x0A283C
+      bg_grad_color: 0x14532D
+      bg_grad_dir: VER
+      widgets:
+        - obj: {x: 208, y: 40, width: 64, height: 64, radius: 32, bg_color: 0x22D3EE, border_width: 0}
+        - obj: {x: 222, y: 52, width: 16, height: 16, radius: 8, bg_color: 0xE0FBFF, border_width: 0}
+        - label:
+            text: "RainMaster"
+            text_color: 0xFFFFFF
+            text_font: montserrat_38
+            align: CENTER
+            y: -30
+        - label:
+            text: "Slimme beregening"
+            text_color: 0xBBF7D0
+            align: CENTER
+            y: 10
+        - label:
+            text: "${fw_version}"
+            text_color: 0x9CA3AF
+            align: CENTER
+            y: 130
+
+    - id: page_home_idle
+      bg_color: 0x000000
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 480
+            height: 38
+            bg_color: 0x404040
+            radius: 0
+            widgets:
+              - label: {id: lbl_wifi, text: "WiFi", text_color: 0x00FF00, x: 8, y: 10}
+              - label: {text: "BEREGENING", text_color: 0xFFFFFF, align: CENTER}
+              - label: {id: lbl_api, text: "HA", text_color: 0xFFA500, x: 450, y: 10}
+        - label: {text: "GEREED", text_color: 0xC0C0C0, align: CENTER, y: -78}
+        - label: {id: lbl_auto_status, text: "AUTOMATISCH", text_color: 0x00FF00, align: CENTER, y: -50}
+        - button:
+            id: btn_start_cycle
+            x: 20
+            y: 155
+            width: 200
+            height: 55
+            bg_color: 0x1B5E20
+            text: "START CYCLUS"
+            on_clicked:
+              - script.execute: start_cycle
+        - button:
+            id: btn_pick_zone
+            x: 260
+            y: 155
+            width: 200
+            height: 55
+            bg_color: 0x404040
+            text: "ZONE KIEZEN"
+            on_clicked:
+              - lvgl.page.show: page_zones
+        - button:
+            id: btn_auto
+            x: 20
+            y: 230
+            width: 200
+            height: 50
+            bg_color: 0x404040
+            widgets:
+              - label: {id: lbl_auto_btn, text: "AUTO: AAN"}
+            on_clicked:
+              - switch.toggle: auto_mode
+        - button:
+            id: btn_settings
+            x: 260
+            y: 230
+            width: 200
+            height: 50
+            bg_color: 0x404040
+            text: "INSTELLINGEN"
+            on_clicked:
+              - lvgl.page.show: page_settings
+
+    - id: page_home_running
+      bg_color: 0x000000
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 480
+            height: 38
+            bg_color: 0x404040
+            radius: 0
+            widgets:
+              - label: {text: "BEREGENING", text_color: 0xFFFFFF, align: CENTER}
+        - label: {text: "BEREGENING ACTIEF", text_color: 0x00FF00, align: CENTER, y: -85}
+        - label: {id: lbl_active_zone, text: "ZONE 1", text_color: 0x00FFFF, align: CENTER, y: -50, text_font: montserrat_28}
+        - label: {id: lbl_timer, text: "00:00", text_color: 0xFFFFFF, align: CENTER, y: 0, text_font: montserrat_48}
+        - button:
+            x: 20
+            y: 205
+            width: 200
+            height: 55
+            bg_color: 0xB71C1C
+            text: "STOP ALLES"
+            on_clicked:
+              - script.execute: stop_all
+        - button:
+            x: 260
+            y: 205
+            width: 200
+            height: 55
+            bg_color: 0x404040
+            text: "ZONES"
+            on_clicked:
+              - lvgl.page.show: page_zones
+
+    - id: page_zones
+      bg_color: 0x000000
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 480
+            height: 38
+            bg_color: 0x404040
+            radius: 0
+            widgets:
+              - label: {text: "ZONES", text_color: 0xFFFFFF, align: CENTER}
+        - button: {id: btn_zone1, x: 10,  y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone1, text: "Zone 1  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 0, seconds: !lambda 'return (int) id(zone1_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone2, x: 250, y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone2, text: "Zone 2  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 1, seconds: !lambda 'return (int) id(zone2_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone3, x: 10,  y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone3, text: "Zone 3  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 2, seconds: !lambda 'return (int) id(zone3_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone4, x: 250, y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone4, text: "Zone 4  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 3, seconds: !lambda 'return (int) id(zone4_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone5, x: 10,  y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone5, text: "Zone 5  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 4, seconds: !lambda 'return (int) id(zone5_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone6, x: 250, y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone6, text: "Zone 6  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 5, seconds: !lambda 'return (int) id(zone6_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone7, x: 10,  y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone7, text: "Zone 7  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 6, seconds: !lambda 'return (int) id(zone7_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone8, x: 250, y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone8, text: "Zone 8  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 7, seconds: !lambda 'return (int) id(zone8_runtime).state;', cycle: false}}]}
+        - button:
+            x: 10
+            y: 278
+            width: 100
+            height: 34
+            bg_color: 0x404040
+            text: "TERUG"
+            on_clicked:
+              - script.execute: show_home
+        - button:
+            x: 125
+            y: 278
+            width: 160
+            height: 34
+            bg_color: 0xB71C1C
+            text: "STOP"
+            on_clicked:
+              - script.execute: stop_all
+        - button:
+            x: 300
+            y: 278
+            width: 170
+            height: 34
+            bg_color: 0x1B5E20
+            text: "AUTO CYCLUS"
+            on_clicked:
+              - script.execute: start_cycle
+              - script.execute: show_home
+
+    - id: page_settings
+      bg_color: 0x000000
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 480
+            height: 38
+            bg_color: 0x404040
+            radius: 0
+            widgets:
+              - label: {text: "INSTELLINGEN", text_color: 0xFFFFFF, align: CENTER}
+        - label: {text: "WiFi", text_color: 0xFFFFFF, x: 20, y: 55}
+        - label: {id: lbl_settings_ip, text: "...", text_color: 0xC0C0C0, x: 150, y: 55}
+        - label: {text: "Home Assistant", text_color: 0xFFFFFF, x: 20, y: 90}
+        - label: {id: lbl_settings_api, text: "...", text_color: 0xC0C0C0, x: 150, y: 90}
+        - label: {text: "Looptijden en broker-instellingen wijzig je in Home Assistant.", text_color: 0xC0C0C0, x: 20, y: 140, width: 440, long_mode: WRAP}
+        - button:
+            x: 20
+            y: 205
+            width: 210
+            height: 50
+            bg_color: 0x404040
+            text: "ZONES"
+            on_clicked:
+              - lvgl.page.show: page_zones
+        - button:
+            x: 250
+            y: 205
+            width: 210
+            height: 50
+            bg_color: 0x404040
+            text: "TERUG"
+            on_clicked:
+              - script.execute: show_home

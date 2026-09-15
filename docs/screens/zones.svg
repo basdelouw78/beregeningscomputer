@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="4" y="4" width="512" height="352" rx="18" fill="#1a1a1a" filter="url(#shadow)"/>
+  <g transform="translate(20,20)">
+    <rect width="480" height="320" rx="6" fill="#000000"/>
+    <clipPath id="scr"><rect width="480" height="320" rx="6"/></clipPath>
+    <g clip-path="url(#scr)">
+      <rect x="0" y="0" width="480" height="38" fill="#404040"/>
+      <text x="240" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">ZONES</text>
+
+      <!-- Zone 1 -->
+      <rect x="10" y="48" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="122" y="78" text-anchor="middle" font-size="14" fill="#ffffff">Zone 1  10m</text>
+      <!-- Zone 2 -->
+      <rect x="250" y="48" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="362" y="78" text-anchor="middle" font-size="14" fill="#ffffff">Zone 2  10m</text>
+      <!-- Zone 3 (actief) -->
+      <rect x="10" y="103" width="225" height="48" rx="7" fill="#1b5e20" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="122" y="133" text-anchor="middle" font-size="14" fill="#ffffff">Zone 3  10m</text>
+      <!-- Zone 4 -->
+      <rect x="250" y="103" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="362" y="133" text-anchor="middle" font-size="14" fill="#ffffff">Zone 4  10m</text>
+      <!-- Zone 5 -->
+      <rect x="10" y="158" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="122" y="188" text-anchor="middle" font-size="14" fill="#ffffff">Zone 5  10m</text>
+      <!-- Zone 6 -->
+      <rect x="250" y="158" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="362" y="188" text-anchor="middle" font-size="14" fill="#ffffff">Zone 6  10m</text>
+      <!-- Zone 7 -->
+      <rect x="10" y="213" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="122" y="243" text-anchor="middle" font-size="14" fill="#ffffff">Zone 7  10m</text>
+      <!-- Zone 8 -->
+      <rect x="250" y="213" width="225" height="48" rx="7" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="362" y="243" text-anchor="middle" font-size="14" fill="#ffffff">Zone 8  10m</text>
+
+      <rect x="10" y="278" width="100" height="34" rx="6" fill="#404040" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="60" y="300" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">TERUG</text>
+      <rect x="125" y="278" width="160" height="34" rx="6" fill="#b71c1c" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="205" y="300" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">STOP</text>
+      <rect x="300" y="278" width="170" height="34" rx="6" fill="#1b5e20" stroke="#ffffff" stroke-width="1.2"/>
+      <text x="385" y="300" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">AUTO CYCLUS</text>
+    </g>
+  </g>
+</svg>
