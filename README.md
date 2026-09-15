@@ -282,3 +282,17 @@ getest op echte hardware** (er was geen ESPHome-toolchain beschikbaar in de
 omgeving waarin dit is gemaakt). Controleer na de eerste `esphome compile`
 de foutmeldingen — kleine schema-aanpassingen (bijv. exacte sleutelnamen
 binnen `lvgl:`-acties) kunnen nodig zijn afhankelijk van je ESPHome-versie.
+
+### Home Assistant-dashboard
+
+In [`homeassistant/rainmaster-dashboard.yaml`](homeassistant/rainmaster-dashboard.yaml)
+staat een kant-en-klaar, grafisch dashboard (Overzicht + Planning) op basis
+van HA's ingebouwde `tile`/`gauge`/`entities`-kaarten — geen HACS nodig.
+Importeren: **Instellingen → Dashboards → "+ Dashboard toevoegen" → "Nieuw
+dashboard vanaf niets"** → open het → potlood-icoon → **⋮ → Onbewerkte
+configuratie bewerken** → plak de inhoud van dat bestand → Opslaan.
+
+De entity-id's in dat bestand gaan uit van het standaard
+ESPHome-naamgevingspatroon (bv. `switch.rainmaster_zone_1`). Kloppen die bij
+jou niet precies, check dan **Ontwikkelaarshulpmiddelen → Statussen**
+(filter op "rainmaster") voor de echte id's.

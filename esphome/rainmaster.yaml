@@ -467,6 +467,20 @@ switch:
   - {platform: template, name: "Zone 7 ingeschakeld", id: zone7_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
   - {platform: template, name: "Zone 8 ingeschakeld", id: zone8_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
 
+# Zodat een volledige cyclus / alles stoppen ook vanuit Home Assistant kan
+# (op het touchscreen kon dit al via de HOME/ZONES-schermen).
+button:
+  - platform: template
+    name: "Start cyclus"
+    icon: mdi:play-circle
+    on_press:
+      - script.execute: start_cycle
+  - platform: template
+    name: "Stop alles"
+    icon: mdi:stop-circle
+    on_press:
+      - script.execute: stop_all
+
 binary_sensor:
   - platform: template
     name: "Beregening actief"
