@@ -25,6 +25,13 @@ substitutions:
   friendly_name: "RainMaster"
   fw_version: "v2.0.0-esphome"
 
+  # Waar het apparaat het firmware-manifest (ESP Web Tools-formaat) vandaan
+  # haalt om automatisch te updaten. Wordt gepubliceerd door
+  # .github/workflows/build-firmware.yml — pas <owner>/<repo> aan als je dit
+  # project fork/hernoemt. Veilig om publiek te zijn: zie de toelichting bij
+  # 'update:' verderop in dit bestand.
+  firmware_manifest_url: "https://github.com/basdelouw78/beregeningscomputer/releases/latest/download/manifest.json"
+
   # ---- SPI-buspinnen (gedeeld door display, touch) ----
   pin_sclk: GPIO12
   pin_mosi: GPIO11
@@ -76,13 +83,41 @@ time:
     id: ha_time
 
 ota:
+  # Lokaal pushen vanuit de ESPHome-dashboard/CLI (handig tijdens ontwikkelen,
+  # vereist dat je op hetzelfde netwerk zit en het ota_password kent).
   - platform: esphome
     password: !secret ota_password
+  # Haalt updates op via HTTP i.p.v. dat ze naar het apparaat gepusht worden
+  # (zie 'update:' hieronder) — dit is wat de OTA-vanaf-GitHub-flow gebruikt.
+  - platform: http_request
+    id: http_ota
 
+http_request:
+  id: http_client
+  verify_ssl: true
+
+# Controleert periodiek een manifest.json (ESP Web Tools-formaat) op GitHub en
+# haalt+flasht een nieuwe firmware.bin op zodra de versie daarin hoger is dan
+# de huidige. Zie README.md voor hoe je dit manifest publiceert (GitHub
+# Actions-workflow) en waarom dit VEILIG is om publiek te hosten: dit board
+# heeft geen eigen wifi-wachtwoord gecompileerd (zie wifi: hieronder), dus de
+# gepubliceerde firmware bevat geen geheimen.
+update:
+  - platform: http_request
+    id: rainmaster_update
+    name: "RainMaster firmware"
+    source: ${firmware_manifest_url}
+    ota_id: http_ota
+    update_interval: 12h
+
+# Bewust GEEN ssid/password hier: dit board wordt bij elke installatie (ook
+# na een OTA-update via GitHub) via het toegangspunt + captive portal
+# hieronder aan je wifi gekoppeld. Eenmaal ingevoerd wordt dat opgeslagen in
+# een apart flashgebied (NVS) dat een firmware-update NIET overschrijft — je
+# hoeft dit dus maar één keer te doen. Zo bevat de gecompileerde firmware
+# zelf nooit je wifi-wachtwoord, en is publiceren op GitHub veilig.
 wifi:
   id: wifi_comp
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   ap:
     ssid: "RainMaster-Fallback"
     password: !secret ap_password

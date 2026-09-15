@@ -187,6 +187,9 @@ Belangrijkste verschillen met de custom firmware:
 - WiFi-fallback (AP + captive portal) komt standaard mee via ESPHome zelf.
 - De tijd komt van Home Assistant zelf (`time: platform: homeassistant`)
   in plaats van een eigen NTP-verbinding.
+- **Automatische firmware-updates via GitHub**: het apparaat controleert
+  periodiek een firmware-manifest op GitHub Releases en haalt zelf een
+  nieuwe versie op — zie "Automatische updates via GitHub" hieronder.
 
 ### Entiteiten in Home Assistant
 Per zone (1-8): een schakelaar om de zone handmatig te starten/stoppen,
@@ -206,9 +209,18 @@ ingebouwd (zie "Planning & automatisering" hierboven).
 ### Bouwen/flashen
 ```
 cd esphome
-cp secrets.yaml.example secrets.yaml   # vul WiFi/OTA/API-gegevens in
+cp secrets.yaml.example secrets.yaml   # vul AP/OTA/API-gegevens in — GEEN wifi hier
 esphome run rainmaster.yaml
 ```
+
+**Eerste keer wifi instellen** (ook na de allereerste flash, of als je ooit
+van wifi-netwerk wisselt): `rainmaster.yaml` bevat bewust géén wifi-ssid/
+-wachtwoord. Na het flashen zet het apparaat zelf een tijdelijk toegangspunt
+op (`RainMaster-Fallback`, wachtwoord uit `ap_password`). Verbind daarmee,
+volg het configuratieschermpje (captive portal) dat vanzelf opent, en vul
+daar je eigen wifi-netwerk in. Dat wordt op het apparaat zelf opgeslagen
+(niet in de firmware) en overleeft toekomstige firmware-updates — je hoeft
+dit dus maar één keer te doen.
 
 **Belangrijk vóór het flashen:**
 - De SPI-pinnen in de `substitutions:`-sectie bovenaan
@@ -221,6 +233,45 @@ esphome run rainmaster.yaml
   en pas zo nodig `calibration:` of `transform:` (swap_xy/mirror_x/mirror_y) aan.
 - Kleuren kunnen omgedraaid ogen op sommige ILI9488-panelen; wissel dan
   `color_order: BGR` naar `RGB` in het `display:`-blok.
+
+### Automatische updates via GitHub
+
+Het apparaat kan zelf nieuwe firmware ophalen en installeren, zonder dat
+Home Assistant/de ESPHome-dashboard erbij nodig is — vergelijkbaar met hoe
+bijvoorbeeld watermeter-kits en andere gedeelde ESPHome-projecten dit doen.
+
+**Hoe het werkt:**
+1. Elke push naar `main` (of handmatig via "Run workflow") draait
+   [`.github/workflows/build-firmware.yml`](.github/workflows/build-firmware.yml):
+   compileert `rainmaster.yaml` en publiceert een GitHub Release met
+   `rainmaster.bin` en een `manifest.json`.
+2. Het apparaat controleert (elke 12 uur, of handmatig) een `update:`-entiteit
+   in Home Assistant die dat manifest leest via
+   `.../releases/latest/download/manifest.json`.
+3. Is de versie in het manifest nieuwer? Dan haalt het apparaat zelf
+   `rainmaster.bin` op en flasht dat (via `ota: platform: http_request`).
+
+**Waarom dit veilig is om publiek te hosten:** zoals hierboven beschreven
+bevat `rainmaster.yaml` bewust geen wifi-wachtwoord — dat wordt pas ná het
+flashen, lokaal op het apparaat, ingesteld via het captive portal. De
+gecompileerde firmware bevat dus geen van jouw geheimen, en kan zonder risico
+in deze (publieke) repository staan.
+
+**Eenmalig instellen** (daarna volledig automatisch): voeg in deze
+GitHub-repository onder **Settings → Secrets and variables → Actions → New
+repository secret** de volgende drie secrets toe — zelfde waarden als in je
+lokale `esphome/secrets.yaml`:
+
+| Secret-naam | Waarde |
+|---|---|
+| `AP_PASSWORD` | wachtwoord voor het tijdelijke wifi-toegangspunt |
+| `OTA_PASSWORD` | wachtwoord voor lokale (niet-GitHub) OTA-updates |
+| `API_ENCRYPTION_KEY` | de 32-byte base64 API-sleutel voor Home Assistant |
+
+Daarna publiceert elke push naar `main` automatisch een nieuwe release, en
+haalt elk RainMaster-apparaat dat zelf op. Heb je deze repo geforkt of
+hernoemd? Pas dan ook `firmware_manifest_url` in `rainmaster.yaml`
+(`substitutions:`) aan naar `<jouw-gebruikersnaam>/<jouw-repo>`.
 
 Dit is een uitgebreide, met zorg opgebouwde configuratie, maar **nog niet
 getest op echte hardware** (er was geen ESPHome-toolchain beschikbaar in de
