@@ -1,0 +1,44 @@
+####################################################################
+# RainMaster — persoonlijke ESPHome-configuratie (voorbeeld)
+#
+# Dit is het bestand dat je in je EIGEN Home Assistant / ESPHome-
+# dashboard aanmaakt (bv. als "rainmaster.yaml") — niet dit bestand
+# zelf. Het haalt alle beregeningslogica op via packages: uit deze
+# repo, en bevat alleen wat persoonlijk/geheim is: apparaatnaam, wifi
+# en de Home Assistant-API-sleutel. Zelfde opzet als andere gedeelde
+# ESPHome-projecten (bv. watermeterkits).
+#
+# Gebruik:
+#   1. Kopieer dit bestand naar het ESPHome-dashboard in Home Assistant
+#      (zie README.md, "ESPHome-variant" -> "Installeren").
+#   2. Zorg dat wifi_ssid/wifi_password/api_encryption_key in je eigen
+#      secrets.yaml staan (het gedeelde ESPHome-dashboard in Home
+#      Assistant heeft al één secrets.yaml voor al je apparaten).
+#   3. Installeren. Updates: klik "Update" in het ESPHome-dashboard
+#      zodra deze repo een nieuwe versie van het package publiceert.
+####################################################################
+
+substitutions:
+  name: rainmaster
+  friendly_name: RainMaster
+
+  # Pas hier je eigen bedrading aan als die afwijkt van de standaard-
+  # pinnen in het package (zie esphome/packages/rainmaster.yaml) — deze
+  # waarden overschrijven die van het package. Voorbeeld:
+  # pin_tft_cs: GPIO10
+
+packages:
+  basdelouw78.rainmaster: github://basdelouw78/beregeningscomputer/esphome/packages/rainmaster.yaml@main
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: false
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password

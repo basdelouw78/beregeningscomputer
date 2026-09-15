@@ -174,7 +174,16 @@ Bij eerste start zonder opgeslagen WiFi: AP `RainMaster-xxxxxx`, wachtwoord `123
 ## ESPHome-variant
 
 Alternatieve implementatie op basis van [ESPHome](https://esphome.io)
-voor dezelfde hardware, in `esphome/rainmaster.yaml`.
+voor dezelfde hardware. Opgesplitst in twee bestanden, zoals gebruikelijk
+bij gedeelde ESPHome-projecten (bv. watermeterkits):
+
+- **`esphome/packages/rainmaster.yaml`** — het gedeelde, publieke
+  package: alle hardware- en beregeningslogica. Geen wifi, geen
+  apparaatnaam, geen geheimen.
+- **`esphome/rainmaster-local.yaml.example`** — jouw persoonlijke
+  configuratie (apparaatnaam, wifi, Home Assistant-API-sleutel), die het
+  package hierboven ophaalt via `packages:`. Dít bestand kopieer je naar
+  je eigen ESPHome-dashboard in Home Assistant.
 
 Belangrijkste verschillen met de custom firmware:
 - **Home Assistant-integratie via de native ESPHome API** (automatische
@@ -187,9 +196,8 @@ Belangrijkste verschillen met de custom firmware:
 - WiFi-fallback (AP + captive portal) komt standaard mee via ESPHome zelf.
 - De tijd komt van Home Assistant zelf (`time: platform: homeassistant`)
   in plaats van een eigen NTP-verbinding.
-- **Automatische firmware-updates via GitHub**: het apparaat controleert
-  periodiek een firmware-manifest op GitHub Releases en haalt zelf een
-  nieuwe versie op — zie "Automatische updates via GitHub" hieronder.
+- **Updaten gaat via het ESPHome-dashboard** ("Update"-knop), niet via
+  GitHub Releases/OTA — zie "Installeren & updaten" hieronder.
 
 ### Entiteiten in Home Assistant
 Per zone (1-8): een schakelaar om de zone handmatig te starten/stoppen,
@@ -206,81 +214,88 @@ Home Assistant-template-sensor bovenop de hierboven genoemde
 dagmasker-/starttijd-entiteiten. De custom firmware heeft dit wel
 ingebouwd (zie "Planning & automatisering" hierboven).
 
-### Bouwen/flashen
+### Installeren & updaten
+
+RainMaster is opgesplitst zoals andere gedeelde ESPHome-projecten (bv.
+watermeterkits): een publiek **package** met alle logica (geen geheimen),
+en een klein **persoonlijk bestand** dat jij zelf aanmaakt met je eigen
+apparaatnaam, wifi en API-sleutel. Dat persoonlijke bestand haalt het
+package op via `packages:` en compileert samen tot je complete firmware.
+
+**Stap 1 — persoonlijke configuratie aanmaken.**
+Open in Home Assistant het **ESPHome-dashboard** (add-on) → **+ NIEUW
+APPARAAT** → sla het automatische wizardje over/verwijder de gegenereerde
+inhoud, en plak in plaats daarvan de inhoud van
+[`esphome/rainmaster-local.yaml.example`](esphome/rainmaster-local.yaml.example)
+(hernoem het bestand desgewenst naar `rainmaster.yaml`). Pas `name` en
+`friendly_name` aan als je een andere naam wilt.
+
+**Stap 2 — secrets instellen.**
+Het ESPHome-dashboard in Home Assistant deelt één `secrets.yaml` voor al
+je apparaten (te vinden/te bewerken via het ⋮-menu in het dashboard, of
+`/config/esphome/secrets.yaml`). Zorg dat daarin staat:
+```yaml
+wifi_ssid: "JouwWifiNaam"
+wifi_password: "JouwWifiWachtwoord"
+api_encryption_key: "..."   # genereer je eigen sleutel, zie hieronder
 ```
-cd esphome
-esphome run rainmaster.yaml
-```
-Geen `secrets.yaml` nodig — `rainmaster.yaml` bevat bewust geen enkel
-geheim (geen wifi-wachtwoord, geen API-sleutel, geen OTA-wachtwoord). Zie
-"Automatische updates via GitHub" hieronder voor waarom dat zo is.
+Een geldige `api_encryption_key` is een willekeurige, base64-gecodeerde
+32-byte sleutel. Laat ESPHome er zelf een genereren: laat het veld
+tijdelijk leeg en compileer — de foutmelding geeft een kant-en-klare
+sleutel — of genereer er lokaal een met
+`python3 -c "import secrets,base64;print(base64.b64encode(secrets.token_bytes(32)).decode())"`.
+
+**Stap 3 — installeren.**
+Klik **INSTALLEREN** bij je nieuwe apparaat in het ESPHome-dashboard. Bij
+de allereerste keer (apparaat nog niet verbonden met wifi) kies je
+**Handmatige download**, flash die met bv. de ESPHome Web-flasher of
+`esphome run`, en volg daarna het onderstaande wifi-stappenplan. Bij elke
+keer daarna gaat het gewoon draadloos.
 
 **Eerste keer wifi instellen** (ook na de allereerste flash, of als je ooit
-van wifi-netwerk wisselt): na het flashen zet het apparaat zelf een
-tijdelijk toegangspunt op (`RainMaster-Fallback`, wachtwoord `12345678` —
-te wijzigen in `rainmaster.yaml` onder `wifi: ap:`). Verbind daarmee, volg
-het configuratieschermpje (captive portal) dat vanzelf opent, en vul daar
-je eigen wifi-netwerk in. Dat wordt op het apparaat zelf opgeslagen (niet
-in de firmware) en overleeft toekomstige firmware-updates — je hoeft dit
-dus maar één keer te doen.
+van wifi-netwerk wisselt): het apparaat zet zelf een tijdelijk toegangspunt
+op (`RainMaster-Fallback`, wachtwoord `12345678` — te wijzigen in het
+package onder `wifi: ap:`). Verbind daarmee, volg het configuratieschermpje
+(captive portal) dat vanzelf opent, en vul daar je eigen wifi-netwerk in.
+Dat wordt op het apparaat zelf opgeslagen (niet in de firmware) en
+overleeft toekomstige updates.
+
+**Updaten.** Zodra deze repo een nieuwe versie van
+`esphome/packages/rainmaster.yaml` publiceert op `main`, verschijnt in het
+ESPHome-dashboard bij je apparaat een **"Update"**-knop — die haalt het
+package opnieuw op, hercompileert samen met jouw persoonlijke bestand, en
+installeert draadloos. Geen GitHub Actions, geen losse firmware-releases,
+geen door het apparaat zelf gepolld manifest nodig.
 
 **Belangrijk vóór het flashen:**
-- De SPI-pinnen in de `substitutions:`-sectie bovenaan
-  `rainmaster.yaml` (`pin_sclk`, `pin_mosi`, `pin_miso`,
-  `pin_tft_cs`, `pin_tft_dc`, `pin_tft_rst`, `pin_touch_cs`, `pin_sd_cs`)
-  zijn **placeholders** — pas ze aan naar je eigen bedrading.
-- De touchkalibratie (`calibration:` onder `touchscreen:`) is een
-  startwaarde; controleer/herijk aan de hand van de `x_raw`/`y_raw`-waarden
-  die in de logs verschijnen bij het aanraken van het scherm (`on_touch:`),
-  en pas zo nodig `calibration:` of `transform:` (swap_xy/mirror_x/mirror_y) aan.
+- De SPI-pinnen in de `substitutions:`-sectie van
+  [`esphome/packages/rainmaster.yaml`](esphome/packages/rainmaster.yaml)
+  (`pin_sclk`, `pin_mosi`, `pin_miso`, `pin_tft_cs`, `pin_tft_dc`,
+  `pin_tft_rst`, `pin_touch_cs`, `pin_sd_cs`) zijn **placeholders** — wijk
+  je af, overschrijf ze dan in je eigen `substitutions:` (zie het
+  voorbeeld-commentaar in `rainmaster-local.yaml.example`).
+- De touchkalibratie (`calibration:` onder `touchscreen:` in het package)
+  is een startwaarde; controleer/herijk aan de hand van de
+  `x_raw`/`y_raw`-waarden die in de logs verschijnen bij het aanraken van
+  het scherm (`on_touch:`), en pas zo nodig `calibration:` of `transform:`
+  (swap_xy/mirror_x/mirror_y) aan.
 - Kleuren kunnen omgedraaid ogen op sommige ILI9488-panelen; wissel dan
-  `color_order: BGR` naar `RGB` in het `display:`-blok.
+  `color_order: BGR` naar `RGB` in het `display:`-blok van het package.
 
-### Automatische updates via GitHub
-
-Het apparaat kan zelf nieuwe firmware ophalen en installeren, zonder dat
-Home Assistant/de ESPHome-dashboard erbij nodig is — vergelijkbaar met hoe
-bijvoorbeeld watermeter-kits en andere gedeelde ESPHome-projecten dit doen.
-
-**Hoe het werkt:**
-1. Elke push naar `main` (of handmatig via "Run workflow") draait
-   [`.github/workflows/build-firmware.yml`](.github/workflows/build-firmware.yml):
-   compileert `rainmaster.yaml` en publiceert een GitHub Release met
-   `rainmaster.bin` en een `manifest.json`.
-2. Het apparaat controleert (elke 12 uur, of handmatig) een `update:`-entiteit
-   in Home Assistant die dat manifest leest via
-   `.../releases/latest/download/manifest.json`.
-3. Is de versie in het manifest nieuwer? Dan haalt het apparaat zelf
-   `rainmaster.bin` op en flasht dat (via `ota: platform: http_request`).
-
-**Waarom dit veilig is om publiek te hosten — en waarom er geen secrets
-nodig zijn:** `rainmaster.yaml` bevat bewust geen enkel geheim:
-- **Wifi** wordt pas ná het flashen, lokaal op het apparaat, ingesteld via
-  het captive portal (zie hierboven) — nooit gecompileerd.
-- **De native Home Assistant-API en lokale OTA-pushes** draaien zonder
-  wachtwoord/versleuteling. Dat klinkt spannend, maar is de gangbare aanpak
-  bij gedeelde/kit-achtige ESPHome-projecten (zoals watermeter-kits): deze
-  zijn toch alleen op je eigen lokale netwerk bereikbaar, dat is hier de
-  vertrouwensgrens — niet een geheime sleutel. Wil je dat liever wél
-  beveiligen, voeg dan zelf `encryption:`/`password:` toe in respectievelijk
-  `api:` en `ota:` (zie de comments daar in `rainmaster.yaml`).
-- Het **tijdelijke wifi-toegangspunt** gebruikt een vast, in de code
-  ingebakken standaardwachtwoord (`12345678`, zelfde als de custom
-  C++-firmware) in plaats van een geheim — dat AP staat toch maar kort aan.
-
-Dus: **iedereen die deze repo gebruikt of forkt kan de workflow direct laten
-draaien, zonder eerst zelf iets in te stellen** — dat is met opzet zo, zodat
-niemand per ongeluk een geheime waarde van iemand anders hergebruikt of
-hoeft te beheren. Elke push naar `main` publiceert automatisch een nieuwe
-release, en elk RainMaster-apparaat haalt die zelf op.
-
-Heb je deze repo geforkt of hernoemd? Pas dan `firmware_manifest_url` in
-`rainmaster.yaml` (`substitutions:`) aan naar `<jouw-gebruikersnaam>/<jouw-repo>`.
+**Waarom dit veilig is om publiek te hosten:**
+`esphome/packages/rainmaster.yaml` bevat geen enkel geheim — geen
+apparaatnaam, geen wifi, geen API-sleutel. Die staan uitsluitend in jouw
+eigen, lokale bestand en `secrets.yaml`, die je nooit naar deze (of een
+andere) publieke repo pusht. De lokale OTA-updates (`ota: platform:
+esphome`) draaien zonder wachtwoord, net als bij andere gedeelde
+ESPHome-kit-projecten — het lokale netwerk is hier de vertrouwensgrens.
+Wil je dat liever wél beveiligen, voeg dan zelf een `password:` toe onder
+`ota:` in je eigen bestand (die overschrijft/vult aan op het package).
 
 Dit is een uitgebreide, met zorg opgebouwde configuratie, maar **nog niet
 getest op echte hardware** (er was geen ESPHome-toolchain beschikbaar in de
-omgeving waarin dit is gemaakt). Controleer na de eerste `esphome compile`
-de foutmeldingen — kleine schema-aanpassingen (bijv. exacte sleutelnamen
+omgeving waarin dit is gemaakt). Controleer na de eerste compilatie de
+foutmeldingen — kleine schema-aanpassingen (bijv. exacte sleutelnamen
 binnen `lvgl:`-acties) kunnen nodig zijn afhankelijk van je ESPHome-versie.
 
 ### Home Assistant-dashboard
