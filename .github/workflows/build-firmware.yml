@@ -6,16 +6,11 @@ name: Build en publiceer RainMaster-firmware
 #                       uit of er een update beschikbaar is, via
 #                       update: platform: http_request in rainmaster.yaml)
 #
-# Waarom dit veilig is om in deze PUBLIEKE repo te publiceren: rainmaster.yaml
-# bevat bewust GEEN wifi-wachtwoord (zie de toelichting bij wifi: in dat
-# bestand) — de gecompileerde firmware bevat dus geen van jouw geheimen.
-#
-# Eenmalige instelling: voeg deze drie secrets toe onder
-# Settings -> Secrets and variables -> Actions -> New repository secret:
-#   AP_PASSWORD          wachtwoord voor het tijdelijke wifi-toegangspunt
-#   OTA_PASSWORD          wachtwoord voor lokale (niet-GitHub) OTA-updates
-#   API_ENCRYPTION_KEY    32-byte base64 sleutel voor de Home Assistant-API
-# (zelfde waarden als in je lokale esphome/secrets.yaml)
+# Geen secrets nodig: rainmaster.yaml bevat bewust geen wifi-wachtwoord, geen
+# API-encryptiesleutel en geen OTA-wachtwoord (zie de toelichting bij wifi:/
+# api:/ota: in dat bestand) — precies zoals andere gedeelde/kit-achtige
+# ESPHome-projecten dat doen. Iedereen die deze repo forkt of gebruikt kan
+# deze workflow dus zonder verdere instelling laten draaien.
 
 on:
   push:
@@ -42,23 +37,6 @@ jobs:
 
       - name: Installeer ESPHome
         run: pip install esphome
-
-      - name: Stel secrets.yaml samen uit GitHub Actions secrets
-        working-directory: esphome
-        env:
-          AP_PASSWORD: ${{ secrets.AP_PASSWORD }}
-          OTA_PASSWORD: ${{ secrets.OTA_PASSWORD }}
-          API_ENCRYPTION_KEY: ${{ secrets.API_ENCRYPTION_KEY }}
-        run: |
-          if [ -z "$AP_PASSWORD" ] || [ -z "$OTA_PASSWORD" ] || [ -z "$API_ENCRYPTION_KEY" ]; then
-            echo "::error::Ontbrekende repository secret(s). Zet AP_PASSWORD, OTA_PASSWORD en API_ENCRYPTION_KEY onder Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-          cat > secrets.yaml <<EOF
-          ap_password: "${AP_PASSWORD}"
-          ota_password: "${OTA_PASSWORD}"
-          api_encryption_key: "${API_ENCRYPTION_KEY}"
-          EOF
 
       - name: Compileer firmware
         working-directory: esphome

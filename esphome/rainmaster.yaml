@@ -9,12 +9,14 @@
 #  - Home Assistant-integratie via de native ESPHome API (automatische
 #    discovery) in plaats van handmatige MQTT-discovery-topics.
 #  - Geen los webconfig-formulier: WiFi-fallback + captive portal komen
-#    standaard mee via ESPHome zelf; verdere instelling verloopt via de
-#    ESPHome-integratie in Home Assistant (of het toestel opnieuw
-#    flashen met andere WiFi-gegevens in secrets.yaml).
+#    standaard mee via ESPHome zelf. WiFi wordt pas ná het flashen, lokaal
+#    op het apparaat, ingesteld via dat captive portal — nooit gecompileerd.
 #  - Zone-looptijden wijzig je via de number-entiteiten in Home
 #    Assistant, niet via het touchscreen — dat kon in de originele
 #    firmware ook niet.
+#
+# Geen secrets.yaml nodig: dit bestand bevat met opzet geen enkel geheim
+# (wifi/API/OTA) — zie de toelichting bij wifi:/api:/ota: verderop.
 #
 # BELANGRIJK: de SPI-pinnen hieronder zijn PLACEHOLDERS. Pas ze aan
 # naar je eigen bedrading voor je flasht. Zie ook README.md.
@@ -72,10 +74,13 @@ psram:
 
 logger:
 
+# Bewust zonder encryption:/key: — dan is er geen per-installatie geheim
+# nodig om deze gedeelde firmware te gebruiken (zelfde aanpak als de meeste
+# gedeelde/kit-achtige ESPHome-projecten: de native API is alleen op je
+# eigen lokale netwerk bereikbaar, dat is de vertrouwensgrens). Wil je 'm
+# alsnog versleutelen, voeg dan zelf een encryption:/key: toe.
 api:
   id: api_server
-  encryption:
-    key: !secret api_encryption_key
 
 # Tijd van Home Assistant (nodig voor de zone-planning hieronder)
 time:
@@ -83,10 +88,11 @@ time:
     id: ha_time
 
 ota:
-  # Lokaal pushen vanuit de ESPHome-dashboard/CLI (handig tijdens ontwikkelen,
-  # vereist dat je op hetzelfde netwerk zit en het ota_password kent).
+  # Lokaal pushen vanuit de ESPHome-dashboard/CLI (handig tijdens ontwikkelen).
+  # Bewust zonder password: — zelfde redenering als bij api: hierboven, en
+  # dit is toch al alleen op je eigen lokale netwerk bereikbaar. Voeg zelf
+  # een password: toe als je dat liever hebt.
   - platform: esphome
-    password: !secret ota_password
   # Haalt updates op via HTTP i.p.v. dat ze naar het apparaat gepusht worden
   # (zie 'update:' hieronder) — dit is wat de OTA-vanaf-GitHub-flow gebruikt.
   - platform: http_request
@@ -120,7 +126,10 @@ wifi:
   id: wifi_comp
   ap:
     ssid: "RainMaster-Fallback"
-    password: !secret ap_password
+    # Vaste standaardwaarde i.p.v. een secret (zelfde als de custom
+    # C++-firmware in de repo-root) — dit AP is toch alleen tijdens het
+    # instellen van je echte wifi kort actief. Wijzig 'm hier gerust.
+    password: "12345678"
 
 captive_portal:
 
