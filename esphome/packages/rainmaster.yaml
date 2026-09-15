@@ -1,5 +1,14 @@
 ####################################################################
-# RainMaster — ESPHome-variant
+# RainMaster — ESPHome package
+#
+# Dit is het gedeelde, publieke deel van de RainMaster-firmware: alle
+# hardware- en beregeningslogica, zonder wifi/API-geheimen of apparaat-
+# naam. Gebruik dit NIET rechtstreeks — laad het via packages: in je
+# eigen, persoonlijke ESPHome-configuratie (zie
+# esphome/rainmaster-local.yaml.example in deze repo, en README.md).
+# Zelfde aanpak als andere gedeelde ESPHome-projecten (bv. watermeterkits):
+#   packages:
+#     basdelouw78.rainmaster: github://basdelouw78/beregeningscomputer/esphome/packages/rainmaster.yaml@main
 #
 # Zelfde hardware als de custom firmware in de repo-root:
 #   MCU:     ESP32-S3-WROOM-1U-N8R2 (8 MB flash, 2 MB quad-SPI PSRAM)
@@ -10,29 +19,19 @@
 #    discovery) in plaats van handmatige MQTT-discovery-topics.
 #  - Geen los webconfig-formulier: WiFi-fallback + captive portal komen
 #    standaard mee via ESPHome zelf. WiFi wordt pas ná het flashen, lokaal
-#    op het apparaat, ingesteld via dat captive portal — nooit gecompileerd.
+#    op het apparaat, ingesteld via dat captive portal (of je vult je
+#    eigen wifi in je persoonlijke config in — zie hierboven).
 #  - Zone-looptijden wijzig je via de number-entiteiten in Home
 #    Assistant, niet via het touchscreen — dat kon in de originele
 #    firmware ook niet.
 #
-# Geen secrets.yaml nodig: dit bestand bevat met opzet geen enkel geheim
-# (wifi/API/OTA) — zie de toelichting bij wifi:/api:/ota: verderop.
-#
-# BELANGRIJK: de SPI-pinnen hieronder zijn PLACEHOLDERS. Pas ze aan
-# naar je eigen bedrading voor je flasht. Zie ook README.md.
+# BELANGRIJK: de SPI-pinnen hieronder zijn PLACEHOLDERS. Pas ze aan naar
+# je eigen bedrading — dat kan door dezelfde substitution(s) opnieuw te
+# zetten in je persoonlijke config (die wint dan van de waarde hier).
 ####################################################################
 
 substitutions:
-  name: "rainmaster"
-  friendly_name: "RainMaster"
   fw_version: "v2.0.0-esphome"
-
-  # Waar het apparaat het firmware-manifest (ESP Web Tools-formaat) vandaan
-  # haalt om automatisch te updaten. Wordt gepubliceerd door
-  # .github/workflows/build-firmware.yml — pas <owner>/<repo> aan als je dit
-  # project fork/hernoemt. Veilig om publiek te zijn: zie de toelichting bij
-  # 'update:' verderop in dit bestand.
-  firmware_manifest_url: "https://github.com/basdelouw78/beregeningscomputer/releases/latest/download/manifest.json"
 
   # ---- SPI-buspinnen (gedeeld door display, touch) ----
   pin_sclk: GPIO12
@@ -50,9 +49,6 @@ substitutions:
   pin_sd_cs: GPIO5
 
 esphome:
-  name: "${name}"
-  friendly_name: "${friendly_name}"
-  name_add_mac_suffix: false
   min_version: "2025.5.0"
   # Splash 2,5s tonen bij opstarten, daarna naar het startscherm
   on_boot:
@@ -74,11 +70,9 @@ psram:
 
 logger:
 
-# Bewust zonder encryption:/key: — dan is er geen per-installatie geheim
-# nodig om deze gedeelde firmware te gebruiken (zelfde aanpak als de meeste
-# gedeelde/kit-achtige ESPHome-projecten: de native API is alleen op je
-# eigen lokale netwerk bereikbaar, dat is de vertrouwensgrens). Wil je 'm
-# alsnog versleutelen, voeg dan zelf een encryption:/key: toe.
+# id: nodig zodat de lambda's verderop id(api_server).is_connected() kunnen
+# aanroepen. De versleuteling (encryption:/key:) zet je zelf in je
+# persoonlijke config — zie esphome/rainmaster-local.yaml.example.
 api:
   id: api_server
 
@@ -87,48 +81,19 @@ time:
   - platform: homeassistant
     id: ha_time
 
+# Lokaal pushen vanuit de ESPHome-dashboard/CLI. Bewust zonder password: —
+# dit is toch alleen op je eigen lokale netwerk bereikbaar. Voeg zelf een
+# password: toe (evt. via !secret in je eigen fork) als je dat liever hebt.
 ota:
-  # Lokaal pushen vanuit de ESPHome-dashboard/CLI (handig tijdens ontwikkelen).
-  # Bewust zonder password: — zelfde redenering als bij api: hierboven, en
-  # dit is toch al alleen op je eigen lokale netwerk bereikbaar. Voeg zelf
-  # een password: toe als je dat liever hebt.
   - platform: esphome
-  # Haalt updates op via HTTP i.p.v. dat ze naar het apparaat gepusht worden
-  # (zie 'update:' hieronder) — dit is wat de OTA-vanaf-GitHub-flow gebruikt.
-  - platform: http_request
-    id: http_ota
 
-http_request:
-  id: http_client
-  verify_ssl: true
-
-# Controleert periodiek een manifest.json (ESP Web Tools-formaat) op GitHub en
-# haalt+flasht een nieuwe firmware.bin op zodra de versie daarin hoger is dan
-# de huidige. Zie README.md voor hoe je dit manifest publiceert (GitHub
-# Actions-workflow) en waarom dit VEILIG is om publiek te hosten: dit board
-# heeft geen eigen wifi-wachtwoord gecompileerd (zie wifi: hieronder), dus de
-# gepubliceerde firmware bevat geen geheimen.
-update:
-  - platform: http_request
-    id: rainmaster_update
-    name: "RainMaster firmware"
-    source: ${firmware_manifest_url}
-    ota_id: http_ota
-    update_interval: 12h
-
-# Bewust GEEN ssid/password hier: dit board wordt bij elke installatie (ook
-# na een OTA-update via GitHub) via het toegangspunt + captive portal
-# hieronder aan je wifi gekoppeld. Eenmaal ingevoerd wordt dat opgeslagen in
-# een apart flashgebied (NVS) dat een firmware-update NIET overschrijft — je
-# hoeft dit dus maar één keer te doen. Zo bevat de gecompileerde firmware
-# zelf nooit je wifi-wachtwoord, en is publiceren op GitHub veilig.
+# Wifi-inloggegevens zet je zelf in je persoonlijke config (ssid/password);
+# die worden hier automatisch mee samengevoegd. Dit toegangspunt is de
+# fallback zolang er nog geen wifi is ingesteld.
 wifi:
   id: wifi_comp
   ap:
     ssid: "RainMaster-Fallback"
-    # Vaste standaardwaarde i.p.v. een secret (zelfde als de custom
-    # C++-firmware in de repo-root) — dit AP is toch alleen tijdens het
-    # instellen van je echte wifi kort actief. Wijzig 'm hier gerust.
     password: "12345678"
 
 captive_portal:
