@@ -1,0 +1,310 @@
+########################################################################
+# RainMaster — Home Assistant dashboard (Lovelace, YAML-modus)
+#
+# Gebruikt alleen ingebouwde HA-kaarten (tile/gauge/entities/heading) via
+# de moderne "sections"-lay-out — geen HACS/custom cards nodig.
+#
+# Importeren:
+#   Instellingen → Dashboards → "+ Dashboard toevoegen" → "Nieuw dashboard
+#   vanaf niets" → geef een naam → open het → rechtsboven potlood-icoon
+#   ("Dashboard bewerken") → ⋮ (rechtsboven) → "Onbewerkte configuratie
+#   bewerken" → alles hieronder plakken → Opslaan.
+#
+# Let op: de entity-id's hieronder gaan uit van het standaard
+# ESPHome-naamgevingspatroon (bv. switch.rainmaster_zone_1). Kloppen die
+# bij jou niet precies? Open Ontwikkelaarshulpmiddelen → Statussen, filter
+# op "rainmaster" om de echte id's te zien, en doe een zoek/vervang in de
+# YAML-editor hierboven.
+########################################################################
+
+title: RainMaster
+views:
+  - title: Overzicht
+    path: overzicht
+    icon: mdi:sprinkler-variant
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: RainMaster
+            heading_style: title
+            icon: mdi:sprinkler-variant
+          - type: tile
+            entity: binary_sensor.rainmaster_beregening_actief
+            name: Beregening actief
+            icon: mdi:sprinkler-variant
+          - type: tile
+            entity: sensor.rainmaster_actieve_zone
+            name: Actieve zone
+            icon: mdi:water
+          - type: tile
+            entity: sensor.rainmaster_resterende_tijd
+            name: Resterende tijd
+            icon: mdi:timer-sand
+          - type: tile
+            entity: switch.rainmaster_automatische_modus
+            name: Automatische modus
+            icon: mdi:autorenew
+
+      - type: grid
+        columns: 2
+        cards:
+          - type: tile
+            entity: button.rainmaster_start_cyclus
+            name: Start cyclus
+            icon: mdi:play-circle
+            vertical: false
+          - type: tile
+            entity: button.rainmaster_stop_alles
+            name: Stop alles
+            icon: mdi:stop-circle
+            vertical: false
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Zones
+            heading_style: subtitle
+            icon: mdi:sprinkler
+          - type: tile
+            entity: switch.rainmaster_zone_1
+            name: Zone 1
+            icon: mdi:numeric-1-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_2
+            name: Zone 2
+            icon: mdi:numeric-2-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_3
+            name: Zone 3
+            icon: mdi:numeric-3-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_4
+            name: Zone 4
+            icon: mdi:numeric-4-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_5
+            name: Zone 5
+            icon: mdi:numeric-5-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_6
+            name: Zone 6
+            icon: mdi:numeric-6-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_7
+            name: Zone 7
+            icon: mdi:numeric-7-circle
+            features:
+              - type: toggle
+          - type: tile
+            entity: switch.rainmaster_zone_8
+            name: Zone 8
+            icon: mdi:numeric-8-circle
+            features:
+              - type: toggle
+
+      - type: grid
+        columns: 2
+        cards:
+          - type: gauge
+            entity: number.rainmaster_waterbudget
+            name: Waterbudget
+            min: 50
+            max: 150
+            needle: true
+            segments:
+              - from: 50
+                color: "#3b82f6"
+              - from: 85
+                color: "#22c55e"
+              - from: 115
+                color: "#f97316"
+          - type: gauge
+            entity: number.rainmaster_regenstop
+            name: Regenstop (dagen)
+            min: 0
+            max: 14
+            needle: true
+            segments:
+              - from: 0
+                color: "#22c55e"
+              - from: 1
+                color: "#f97316"
+
+  - title: Planning
+    path: planning
+    icon: mdi:calendar-clock
+    type: sections
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Zone-planning
+            heading_style: title
+            icon: mdi:calendar-clock
+          - type: markdown
+            content: >
+              Dagen: cijfers `1`-`7` voor maandag t/m zondag (bv. `1357` =
+              ma/wo/vr/zo). Starttijd: `HH:MM`, of `--:--` voor geen
+              starttijd. Tot 3 starttijden per zone.
+
+      - type: grid
+        columns: 2
+        cards:
+          - type: entities
+            title: Zone 1
+            icon: mdi:numeric-1-circle
+            entities:
+              - entity: switch.rainmaster_zone_1_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_1_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_1_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_1_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_1_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_1_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_1_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 2
+            icon: mdi:numeric-2-circle
+            entities:
+              - entity: switch.rainmaster_zone_2_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_2_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_2_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_2_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_2_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_2_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_2_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 3
+            icon: mdi:numeric-3-circle
+            entities:
+              - entity: switch.rainmaster_zone_3_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_3_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_3_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_3_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_3_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_3_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_3_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 4
+            icon: mdi:numeric-4-circle
+            entities:
+              - entity: switch.rainmaster_zone_4_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_4_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_4_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_4_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_4_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_4_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_4_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 5
+            icon: mdi:numeric-5-circle
+            entities:
+              - entity: switch.rainmaster_zone_5_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_5_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_5_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_5_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_5_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_5_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_5_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 6
+            icon: mdi:numeric-6-circle
+            entities:
+              - entity: switch.rainmaster_zone_6_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_6_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_6_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_6_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_6_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_6_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_6_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 7
+            icon: mdi:numeric-7-circle
+            entities:
+              - entity: switch.rainmaster_zone_7_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_7_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_7_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_7_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_7_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_7_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_7_laatste_beregening
+                name: Laatste beregening
+          - type: entities
+            title: Zone 8
+            icon: mdi:numeric-8-circle
+            entities:
+              - entity: switch.rainmaster_zone_8_ingeschakeld
+                name: Ingeschakeld
+              - entity: number.rainmaster_zone_8_looptijd
+                name: Looptijd (s)
+              - entity: text.rainmaster_zone_8_dagen
+                name: Dagen
+              - entity: text.rainmaster_zone_8_starttijd_1
+                name: Starttijd 1
+              - entity: text.rainmaster_zone_8_starttijd_2
+                name: Starttijd 2
+              - entity: text.rainmaster_zone_8_starttijd_3
+                name: Starttijd 3
+              - entity: sensor.rainmaster_zone_8_laatste_beregening
+                name: Laatste beregening
