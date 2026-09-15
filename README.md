@@ -174,7 +174,7 @@ Bij eerste start zonder opgeslagen WiFi: AP `RainMaster-xxxxxx`, wachtwoord `123
 ## ESPHome-variant
 
 Alternatieve implementatie op basis van [ESPHome](https://esphome.io)
-voor dezelfde hardware, in `esphome/beregeningscomputer.yaml`.
+voor dezelfde hardware, in `esphome/rainmaster.yaml`.
 
 Belangrijkste verschillen met de custom firmware:
 - **Home Assistant-integratie via de native ESPHome API** (automatische
@@ -207,12 +207,12 @@ ingebouwd (zie "Planning & automatisering" hierboven).
 ```
 cd esphome
 cp secrets.yaml.example secrets.yaml   # vul WiFi/OTA/API-gegevens in
-esphome run beregeningscomputer.yaml
+esphome run rainmaster.yaml
 ```
 
 **Belangrijk vóór het flashen:**
 - De SPI-pinnen in de `substitutions:`-sectie bovenaan
-  `beregeningscomputer.yaml` (`pin_sclk`, `pin_mosi`, `pin_miso`,
+  `rainmaster.yaml` (`pin_sclk`, `pin_mosi`, `pin_miso`,
   `pin_tft_cs`, `pin_tft_dc`, `pin_tft_rst`, `pin_touch_cs`, `pin_sd_cs`)
   zijn **placeholders** — pas ze aan naar je eigen bedrading.
 - De touchkalibratie (`calibration:` onder `touchscreen:`) is een
