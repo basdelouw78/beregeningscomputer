@@ -120,7 +120,6 @@ display:
     cs_pin: ${pin_tft_cs}
     dc_pin: ${pin_tft_dc}
     reset_pin: ${pin_tft_rst}
-    rotation: 90
     color_order: BGR      # wissel naar RGB als kleuren omgedraaid ogen
     invert_colors: false
     auto_clear_enabled: false
@@ -735,6 +734,7 @@ lvgl:
     - tft
   touchscreens:
     - touch
+  rotation: 90
   color_depth: 16
   bg_color: 0x000000
   default_font: montserrat_14
@@ -796,7 +796,7 @@ lvgl:
             height: 55
             bg_color: 0x1B5E20
             text: "START CYCLUS"
-            on_clicked:
+            on_click:
               - script.execute: start_cycle
         - button:
             id: btn_pick_zone
@@ -806,7 +806,7 @@ lvgl:
             height: 55
             bg_color: 0x404040
             text: "ZONE KIEZEN"
-            on_clicked:
+            on_click:
               - lvgl.page.show: page_zones
         - button:
             id: btn_auto
@@ -817,7 +817,7 @@ lvgl:
             bg_color: 0x404040
             widgets:
               - label: {id: lbl_auto_btn, text: "AUTO: AAN"}
-            on_clicked:
+            on_click:
               - switch.toggle: auto_mode
         - button:
             id: btn_settings
@@ -827,7 +827,7 @@ lvgl:
             height: 50
             bg_color: 0x404040
             text: "INSTELLINGEN"
-            on_clicked:
+            on_click:
               - lvgl.page.show: page_settings
 
     - id: page_home_running
@@ -852,7 +852,7 @@ lvgl:
             height: 55
             bg_color: 0xB71C1C
             text: "STOP ALLES"
-            on_clicked:
+            on_click:
               - script.execute: stop_all
         - button:
             x: 260
@@ -861,7 +861,7 @@ lvgl:
             height: 55
             bg_color: 0x404040
             text: "ZONES"
-            on_clicked:
+            on_click:
               - lvgl.page.show: page_zones
 
     - id: page_zones
@@ -876,14 +876,14 @@ lvgl:
             radius: 0
             widgets:
               - label: {text: "ZONES", text_color: 0xFFFFFF, align: CENTER}
-        - button: {id: btn_zone1, x: 10,  y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone1, text: "Zone 1  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 0, seconds: !lambda 'return (int) id(zone1_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone2, x: 250, y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone2, text: "Zone 2  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 1, seconds: !lambda 'return (int) id(zone2_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone3, x: 10,  y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone3, text: "Zone 3  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 2, seconds: !lambda 'return (int) id(zone3_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone4, x: 250, y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone4, text: "Zone 4  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 3, seconds: !lambda 'return (int) id(zone4_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone5, x: 10,  y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone5, text: "Zone 5  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 4, seconds: !lambda 'return (int) id(zone5_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone6, x: 250, y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone6, text: "Zone 6  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 5, seconds: !lambda 'return (int) id(zone6_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone7, x: 10,  y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone7, text: "Zone 7  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 6, seconds: !lambda 'return (int) id(zone7_runtime).state;', cycle: false}}]}
-        - button: {id: btn_zone8, x: 250, y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone8, text: "Zone 8  10m"}}], on_clicked: [{script.execute: {id: start_zone, zone: 7, seconds: !lambda 'return (int) id(zone8_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone1, x: 10,  y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone1, text: "Zone 1  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 0, seconds: !lambda 'return (int) id(zone1_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone2, x: 250, y: 48,  width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone2, text: "Zone 2  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 1, seconds: !lambda 'return (int) id(zone2_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone3, x: 10,  y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone3, text: "Zone 3  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 2, seconds: !lambda 'return (int) id(zone3_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone4, x: 250, y: 103, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone4, text: "Zone 4  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 3, seconds: !lambda 'return (int) id(zone4_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone5, x: 10,  y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone5, text: "Zone 5  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 4, seconds: !lambda 'return (int) id(zone5_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone6, x: 250, y: 158, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone6, text: "Zone 6  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 5, seconds: !lambda 'return (int) id(zone6_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone7, x: 10,  y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone7, text: "Zone 7  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 6, seconds: !lambda 'return (int) id(zone7_runtime).state;', cycle: false}}]}
+        - button: {id: btn_zone8, x: 250, y: 213, width: 225, height: 48, bg_color: 0x404040, widgets: [{label: {id: lbl_zone8, text: "Zone 8  10m"}}], on_click: [{script.execute: {id: start_zone, zone: 7, seconds: !lambda 'return (int) id(zone8_runtime).state;', cycle: false}}]}
         - button:
             x: 10
             y: 278
@@ -891,7 +891,7 @@ lvgl:
             height: 34
             bg_color: 0x404040
             text: "TERUG"
-            on_clicked:
+            on_click:
               - script.execute: show_home
         - button:
             x: 125
@@ -900,7 +900,7 @@ lvgl:
             height: 34
             bg_color: 0xB71C1C
             text: "STOP"
-            on_clicked:
+            on_click:
               - script.execute: stop_all
         - button:
             x: 300
@@ -909,7 +909,7 @@ lvgl:
             height: 34
             bg_color: 0x1B5E20
             text: "AUTO CYCLUS"
-            on_clicked:
+            on_click:
               - script.execute: start_cycle
               - script.execute: show_home
 
@@ -941,7 +941,7 @@ lvgl:
             height: 50
             bg_color: 0x404040
             text: "ZONES"
-            on_clicked:
+            on_click:
               - lvgl.page.show: page_zones
         - button:
             x: 250
@@ -950,5 +950,5 @@ lvgl:
             height: 50
             bg_color: 0x404040
             text: "TERUG"
-            on_clicked:
+            on_click:
               - script.execute: show_home
