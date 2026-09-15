@@ -650,53 +650,128 @@ interval:
             return std::string(buf);
       - lvgl.label.update:
           id: lbl_active_zone
-          text: !lambda "return \"ZONE \" + to_string(id(active_zone) + 1);"
-      - lvgl.label.update: {id: lbl_zone1, text: !lambda "return \"Zone 1  \" + to_string((int) id(zone1_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone2, text: !lambda "return \"Zone 2  \" + to_string((int) id(zone2_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone3, text: !lambda "return \"Zone 3  \" + to_string((int) id(zone3_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone4, text: !lambda "return \"Zone 4  \" + to_string((int) id(zone4_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone5, text: !lambda "return \"Zone 5  \" + to_string((int) id(zone5_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone6, text: !lambda "return \"Zone 6  \" + to_string((int) id(zone6_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone7, text: !lambda "return \"Zone 7  \" + to_string((int) id(zone7_runtime).state / 60) + \"m\";"}
-      - lvgl.label.update: {id: lbl_zone8, text: !lambda "return \"Zone 8  \" + to_string((int) id(zone8_runtime).state / 60) + \"m\";"}
-      - lvgl.widget.update: {id: btn_zone1, bg_color: !lambda "return (id(running) && id(active_zone) == 0) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone2, bg_color: !lambda "return (id(running) && id(active_zone) == 1) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone3, bg_color: !lambda "return (id(running) && id(active_zone) == 2) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone4, bg_color: !lambda "return (id(running) && id(active_zone) == 3) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone5, bg_color: !lambda "return (id(running) && id(active_zone) == 4) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone6, bg_color: !lambda "return (id(running) && id(active_zone) == 5) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone7, bg_color: !lambda "return (id(running) && id(active_zone) == 6) ? 0x1B5E20 : 0x404040;"}
-      - lvgl.widget.update: {id: btn_zone8, bg_color: !lambda "return (id(running) && id(active_zone) == 7) ? 0x1B5E20 : 0x404040;"}
+          text: !lambda |-
+            char buf[8];
+            snprintf(buf, sizeof(buf), "ZONE %d", id(active_zone) + 1);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone1
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 1  %dm", (int) id(zone1_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone2
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 2  %dm", (int) id(zone2_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone3
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 3  %dm", (int) id(zone3_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone4
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 4  %dm", (int) id(zone4_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone5
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 5  %dm", (int) id(zone5_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone6
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 6  %dm", (int) id(zone6_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone7
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 7  %dm", (int) id(zone7_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lbl_zone8
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Zone 8  %dm", (int) id(zone8_runtime).state / 60);
+            return std::string(buf);
+      - lvgl.widget.update: {id: btn_zone1, bg_color: !lambda "return (id(running) && id(active_zone) == 0) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone2, bg_color: !lambda "return (id(running) && id(active_zone) == 1) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone3, bg_color: !lambda "return (id(running) && id(active_zone) == 2) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone4, bg_color: !lambda "return (id(running) && id(active_zone) == 3) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone5, bg_color: !lambda "return (id(running) && id(active_zone) == 4) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone6, bg_color: !lambda "return (id(running) && id(active_zone) == 5) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone7, bg_color: !lambda "return (id(running) && id(active_zone) == 6) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
+      - lvgl.widget.update: {id: btn_zone8, bg_color: !lambda "return (id(running) && id(active_zone) == 7) ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"}
       - lvgl.label.update:
           id: lbl_wifi
-          text: !lambda "return id(wifi_comp).is_connected() ? \"WiFi\" : \"!\";"
+          text: !lambda |-
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%s", id(wifi_comp).is_connected() ? "WiFi" : "!");
+            return std::string(buf);
           text_color: !lambda "return id(wifi_comp).is_connected() ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFF0000);"
       - lvgl.label.update:
           id: lbl_api
-          text: !lambda "return \"HA\";"
+          text: !lambda |-
+            char buf[4];
+            snprintf(buf, sizeof(buf), "HA");
+            return std::string(buf);
           text_color: !lambda "return id(api_server).is_connected() ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFFA500);"
       - lvgl.label.update:
           id: lbl_auto_btn
-          text: !lambda "return id(auto_mode).state ? \"AUTO: AAN\" : \"AUTO: UIT\";"
+          text: !lambda |-
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%s", id(auto_mode).state ? "AUTO: AAN" : "AUTO: UIT");
+            return std::string(buf);
       - lvgl.label.update:
           id: lbl_auto_status
-          text: !lambda "return id(auto_mode).state ? std::string(\"AUTOMATISCH\") : std::string(\"HANDMATIG\");"
+          text: !lambda |-
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%s", id(auto_mode).state ? "AUTOMATISCH" : "HANDMATIG");
+            return std::string(buf);
           text_color: !lambda "return id(auto_mode).state ? (lv_color_t) lv_color_hex(0x00FF00) : (lv_color_t) lv_color_hex(0xFFA500);"
       - lvgl.widget.update:
           id: btn_auto
           bg_color: !lambda "return id(auto_mode).state ? (lv_color_t) lv_color_hex(0x1B5E20) : (lv_color_t) lv_color_hex(0x404040);"
       - lvgl.label.update:
           id: lbl_settings_ip
-          text: !lambda "return id(wifi_comp).is_connected() ? id(wifi_comp).get_ip_addresses()[0].str() : std::string(\"niet verbonden\");"
+          text: !lambda |-
+            char buf[48];
+            if (id(wifi_comp).is_connected()) {
+              char ipbuf[46];
+              id(wifi_comp).get_ip_addresses()[0].str_to(ipbuf);
+              snprintf(buf, sizeof(buf), "%s", ipbuf);
+            } else {
+              snprintf(buf, sizeof(buf), "niet verbonden");
+            }
+            return std::string(buf);
       - lvgl.label.update:
           id: lbl_settings_api
-          text: !lambda "return id(api_server).is_connected() ? std::string(\"verbonden\") : std::string(\"niet verbonden\");"
+          text: !lambda |-
+            char buf[20];
+            snprintf(buf, sizeof(buf), "%s", id(api_server).is_connected() ? "verbonden" : "niet verbonden");
+            return std::string(buf);
       - lvgl.label.update:
           id: lbl_settings_raindelay
-          text: !lambda "int rd = (int) id(rain_delay).state; return rd > 0 ? (to_string(rd) + \" dagen\") : std::string(\"uit\");"
+          text: !lambda |-
+            int rd = (int) id(rain_delay).state;
+            char buf[16];
+            if (rd > 0) snprintf(buf, sizeof(buf), "%d dagen", rd);
+            else snprintf(buf, sizeof(buf), "uit");
+            return std::string(buf);
       - lvgl.label.update:
           id: lbl_settings_budget
-          text: !lambda "return to_string((int) id(water_budget).state) + \"%\";"
+          text: !lambda |-
+            char buf[8];
+            snprintf(buf, sizeof(buf), "%d%%", (int) id(water_budget).state);
+            return std::string(buf);
 
   # Elke ~15s: hooguit eens per kalenderminuut de 8 zones langs de planning
   # leggen (regenstop, dagmasker, starttijden) en zo nodig een zone starten.
