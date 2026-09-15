@@ -1,6 +1,6 @@
-# GridTogether Beregeningscomputer v2.0.0
+# RainMaster v2.0.0
 
-Ombouw van de aangeleverde GridTogether firmware naar een ESP32-S3 + bestaand TFT/touchscreen beregeningscomputer.
+Ombouw van de aangeleverde GridTogether firmware naar RainMaster, een ESP32-S3 + bestaand TFT/touchscreen beregeningscomputer.
 
 Verwijderd: P1/DSMR, LoRa, energiehandel, API/backend, DeviceAuth en energiebatching.
 Behouden: TFT/touch, WiFi-configuratieconcept, webserver, OTA, watchdog en lokale NVS-instellingen.
@@ -49,7 +49,7 @@ Commando's:
 - `beregening/zone/1/command` = `ON`/`OFF`
 - `beregening/zone/1/runtime/set` = seconden
 
-Bij eerste start zonder opgeslagen WiFi: AP `GridTogether-xxxxxx`, wachtwoord `12345678`.
+Bij eerste start zonder opgeslagen WiFi: AP `RainMaster-xxxxxx`, wachtwoord `12345678`.
 
 ## ESPHome-variant
 
