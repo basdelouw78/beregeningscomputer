@@ -430,7 +430,6 @@ binary_sensor:
     id: master_sensor
     icon: mdi:sprinkler-variant
     lambda: "return id(running);"
-    update_interval: 2s
 
 # Planning per zone: dagen (1=ma..7=zo, bv. "1357") + tot 3 starttijden (HH:MM).
 text:
