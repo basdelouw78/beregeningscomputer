@@ -549,23 +549,30 @@ lvgl:
 
   pages:
     - id: page_splash
-      bg_color: 0x000000
+      # Verticale water->groen gradient met een druppel-logo, zelfde
+      # natuurlijke uitstraling als het splashscherm van de C++-firmware.
+      bg_color: 0x0A283C
+      bg_grad_color: 0x14532D
+      bg_grad_dir: VER
       widgets:
+        - obj: {x: 208, y: 40, width: 64, height: 64, radius: 32, bg_color: 0x22D3EE, border_width: 0}
+        - obj: {x: 222, y: 52, width: 16, height: 16, radius: 8, bg_color: 0xE0FBFF, border_width: 0}
         - label:
             text: "RainMaster"
-            text_color: 0x00FFFF
-            align: CENTER
-            y: -60
-        - label:
-            text: "BEREGENING"
             text_color: 0xFFFFFF
+            text_font: montserrat_38
             align: CENTER
-            y: -10
+            y: -30
+        - label:
+            text: "Slimme beregening"
+            text_color: 0xBBF7D0
+            align: CENTER
+            y: 10
         - label:
             text: "${fw_version}"
-            text_color: 0xC0C0C0
+            text_color: 0x9CA3AF
             align: CENTER
-            y: 40
+            y: 130
 
     - id: page_home_idle
       bg_color: 0x000000
