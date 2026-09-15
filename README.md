@@ -20,12 +20,58 @@ onderhouden en integreert direct native met Home Assistant.
 
 ## Functies
 - Acht onafhankelijke beregeningszones, elk met een eigen looptijd
-- Automatische cyclus die alle zones na elkaar doorloopt
+- **Planning per zone**: tot 3 onafhankelijke starttijden, met een eigen
+  dagen-van-de-week-selectie — "elke maandag/woensdag/vrijdag om 06:00
+  en 19:00" is bijvoorbeeld mogelijk
+- **Regenstop**: beregening tijdelijk (in dagen) volledig uitstellen
+- **Waterbudget/seizoensaanpassing**: alle geplande looptijden met een
+  percentage schalen (bv. 50% in het najaar, 130% in een hittegolf)
+- **Zone in-/uitschakelen**: een zone tijdelijk uitsluiten van de
+  cyclus en planning (handmatig testen blijft altijd mogelijk)
+- Automatische cyclus die alle ingeschakelde zones na elkaar doorloopt
 - Handmatig een enkele zone starten/stoppen vanaf het touchscreen
-- Live countdown van de resterende looptijd
-- Home Assistant-integratie voor bediening en automatisering op afstand
+- Live countdown van de resterende looptijd + geschiedenis per zone
+  (laatste keer dat een zone liep)
+- Home Assistant-integratie voor bediening, planning en automatisering
+  op afstand
 - WiFi-fallback met een tijdelijk toegangspunt als er geen verbinding is
 - OTA-firmware-updates
+
+## Planning & automatisering
+
+De planning werkt hetzelfde in beide firmware-varianten en is bewust
+vormgegeven zoals bij bestaande beregeningscomputers (Rain Bird, Hunter,
+RainMachine e.d.):
+
+| Functie | RainMaster |
+|---|---|
+| Meerdere starttijden per zone | Ja, tot 3 per zone |
+| Dagen-van-de-week-selectie | Ja, per zone onafhankelijk |
+| Automatische cyclus (alle zones na elkaar) | Ja |
+| Regenstop (tijdelijk alles uitstellen) | Ja, 0-14 dagen |
+| Waterbudget/seizoensaanpassing (%) | Ja, 50-150% |
+| Zone in-/uitschakelen | Ja |
+| Handmatige zone-test | Ja, altijd mogelijk (ook als zone uitgeschakeld is) |
+| Laatste-run-geschiedenis per zone | Ja |
+| Fysieke regensensor-ingang | Nee — dit board heeft er geen; koppel in plaats daarvan de "Regenstop"-entiteit aan een Home Assistant-regen/weer-automatisering (zie hieronder) |
+| Master-klep/pomprelais-uitgang | Nee — dit board stuurt geen relais rechtstreeks aan; gebruik de "Beregening actief"-entiteit om via Home Assistant een pomprelais te schakelen |
+
+**Wat de planning WEL en NIET regelt:** de scheduler start/stopt zones
+zelf, ook zonder dat Home Assistant online is (de instellingen staan
+opgeslagen op het apparaat). Home Assistant is dus geen vereiste voor
+dagelijks gebruik — het is de plek waar je de planning instelt en waar
+je automatiseringen (bv. gekoppeld aan een weerstation) bovenop bouwt.
+
+**Dagmasker-formaat**: cijfers `1`-`7` voor maandag t/m zondag, bv.
+`1357` = maandag/woensdag/vrijdag/zondag. **Starttijd-formaat**: `HH:MM`
+(24-uurs), bv. `06:30`; `--:--` of een lege/ongeldige waarde betekent
+"geen starttijd".
+
+Het touchscreen zelf heeft geen planningseditor (net zoals looptijden
+al alleen op afstand instelbaar waren) — je stelt de planning in via
+Home Assistant of, bij de custom firmware, rechtstreeks via MQTT. Het
+instellingenscherm toont wel de regenstop-status en het waterbudget,
+en bij de custom firmware ook de eerstvolgende geplande beurt.
 
 ## Schermen
 
@@ -98,14 +144,28 @@ netwerk aansluit.**
 
 ### MQTT
 Discovery wordt automatisch aangemaakt voor automatische modus, status,
-actieve zone, resterende tijd, zone 1-8 en looptijden.
+actieve zone, resterende tijd, regenstop, waterbudget, "beregening
+actief" en eerstvolgende beurt, en per zone: aan/uit, looptijd,
+ingeschakeld, dagmasker, 3 starttijden en laatste-run-tijdstip.
 
-Commando's:
+Commando's (algemeen):
 - `beregening/command/start` = `CYCLE` of `1`..`8`
 - `beregening/command/stop` = willekeurige payload
 - `beregening/command/auto` = `ON`/`OFF`
-- `beregening/zone/1/command` = `ON`/`OFF`
-- `beregening/zone/1/runtime/set` = seconden
+- `beregening/command/raindelay/set` = dagen (0-14)
+- `beregening/command/waterbudget/set` = percentage (50-150)
+
+Commando's (per zone `N` = 1-8):
+- `beregening/zone/N/command` = `ON`/`OFF`
+- `beregening/zone/N/runtime/set` = seconden
+- `beregening/zone/N/enabled/set` = `ON`/`OFF`
+- `beregening/zone/N/schedule/daymask/set` = bv. `1357` (ma/wo/vr/zo)
+- `beregening/zone/N/schedule/start1/set` (en `start2`/`start3`) = `HH:MM` of `--:--`
+
+Status-topics volgen dezelfde padnamen zonder `/set` (bv.
+`beregening/status/raindelay`, `beregening/zone/N/schedule/daymask`,
+`beregening/zone/N/last_run`, `beregening/status/next_run`,
+`beregening/status/master`).
 
 Bij eerste start zonder opgeslagen WiFi: AP `RainMaster-xxxxxx`, wachtwoord `12345678`.
 
@@ -114,7 +174,7 @@ Bij eerste start zonder opgeslagen WiFi: AP `RainMaster-xxxxxx`, wachtwoord `123
 ## ESPHome-variant
 
 Alternatieve implementatie op basis van [ESPHome](https://esphome.io)
-voor dezelfde hardware, in `esphome/beregeningscomputer.yaml`.
+voor dezelfde hardware, in `esphome/rainmaster.yaml`.
 
 Belangrijkste verschillen met de custom firmware:
 - **Home Assistant-integratie via de native ESPHome API** (automatische
@@ -123,19 +183,36 @@ Belangrijkste verschillen met de custom firmware:
   deze config.
 - **Touchscreen-UI met LVGL**: dezelfde vier schermen als hierboven,
   met dezelfde natuurlijke opstart-animatie.
-- Zone-looptijden stel je in via de `number`-entiteiten in Home Assistant.
+- Zone-looptijden en -planning stel je in via entiteiten in Home Assistant.
 - WiFi-fallback (AP + captive portal) komt standaard mee via ESPHome zelf.
+- De tijd komt van Home Assistant zelf (`time: platform: homeassistant`)
+  in plaats van een eigen NTP-verbinding.
+
+### Entiteiten in Home Assistant
+Per zone (1-8): een schakelaar om de zone handmatig te starten/stoppen,
+de looptijd (seconden), "ingeschakeld" (uitsluiten van cyclus/planning),
+het dagmasker (tekstveld, cijfers `1`-`7`), 3 starttijden (tekstvelden,
+`HH:MM`) en een sensor met de laatste keer dat de zone liep.
+Algemeen: automatische modus, regenstop (dagen), waterbudget (%) en
+"beregening actief".
+
+Er is bewust geen aparte "volgende beregening"-entiteit op het apparaat
+zelf (dat zou een dagen-vooruit-scan over alle zones vergen die beter
+past bij Home Assistant dan bij het board) — bouw dat zo nodig als een
+Home Assistant-template-sensor bovenop de hierboven genoemde
+dagmasker-/starttijd-entiteiten. De custom firmware heeft dit wel
+ingebouwd (zie "Planning & automatisering" hierboven).
 
 ### Bouwen/flashen
 ```
 cd esphome
 cp secrets.yaml.example secrets.yaml   # vul WiFi/OTA/API-gegevens in
-esphome run beregeningscomputer.yaml
+esphome run rainmaster.yaml
 ```
 
 **Belangrijk vóór het flashen:**
 - De SPI-pinnen in de `substitutions:`-sectie bovenaan
-  `beregeningscomputer.yaml` (`pin_sclk`, `pin_mosi`, `pin_miso`,
+  `rainmaster.yaml` (`pin_sclk`, `pin_mosi`, `pin_miso`,
   `pin_tft_cs`, `pin_tft_dc`, `pin_tft_rst`, `pin_touch_cs`, `pin_sd_cs`)
   zijn **placeholders** — pas ze aan naar je eigen bedrading.
 - De touchkalibratie (`calibration:` onder `touchscreen:`) is een

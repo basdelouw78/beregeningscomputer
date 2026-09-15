@@ -70,6 +70,11 @@ api:
   encryption:
     key: !secret api_encryption_key
 
+# Tijd van Home Assistant (nodig voor de zone-planning hieronder)
+time:
+  - platform: homeassistant
+    id: ha_time
+
 ota:
   - platform: esphome
     password: !secret ota_password
@@ -177,6 +182,37 @@ globals:
   - id: pending_next_zone
     type: int
     initial_value: "0"
+  # Planning (zie script check_zone_schedule / de 15s-interval hieronder)
+  - id: last_checked_minute
+    type: int
+    initial_value: "-1"
+  - id: last_checked_yday
+    type: int
+    initial_value: "-1"
+  - id: last_start1
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start2
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start3
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start4
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start5
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start6
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start7
+    type: uint32_t
+    initial_value: "0"
+  - id: last_start8
+    type: uint32_t
+    initial_value: "0"
 
 number:
   - platform: template
@@ -267,6 +303,28 @@ number:
     initial_value: 600
     optimistic: true
     restore_value: true
+  - platform: template
+    name: "Regenstop"
+    id: rain_delay
+    icon: mdi:weather-rainy
+    unit_of_measurement: dagen
+    min_value: 0
+    max_value: 14
+    step: 1
+    initial_value: 0
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: "Waterbudget"
+    id: water_budget
+    icon: mdi:water-percent
+    unit_of_measurement: "%"
+    min_value: 50
+    max_value: 150
+    step: 5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
 
 switch:
   - platform: template
@@ -355,6 +413,58 @@ switch:
       - script.execute: {id: start_zone, zone: 7, seconds: !lambda "return (int) id(zone8_runtime).state;", cycle: false}
     turn_off_action:
       - script.execute: stop_all
+  # Zone in-/uitschakelen: uitgeschakelde zones slaat de auto-cyclus en de
+  # planning over; handmatig starten (de zoneN-switches hierboven) blijft mogelijk.
+  - {platform: template, name: "Zone 1 ingeschakeld", id: zone1_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 2 ingeschakeld", id: zone2_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 3 ingeschakeld", id: zone3_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 4 ingeschakeld", id: zone4_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 5 ingeschakeld", id: zone5_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 6 ingeschakeld", id: zone6_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 7 ingeschakeld", id: zone7_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+  - {platform: template, name: "Zone 8 ingeschakeld", id: zone8_enabled, icon: mdi:toggle-switch, entity_category: config, optimistic: true, restore_mode: RESTORE_DEFAULT_ON}
+
+binary_sensor:
+  - platform: template
+    name: "Beregening actief"
+    id: master_sensor
+    icon: mdi:sprinkler-variant
+    lambda: "return id(running);"
+
+# Planning per zone: dagen (1=ma..7=zo, bv. "1357") + tot 3 starttijden (HH:MM).
+text:
+  - {platform: template, mode: text, name: "Zone 1 dagen", id: zone1_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 1 starttijd 1", id: zone1_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 1 starttijd 2", id: zone1_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 1 starttijd 3", id: zone1_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 2 dagen", id: zone2_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 2 starttijd 1", id: zone2_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 2 starttijd 2", id: zone2_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 2 starttijd 3", id: zone2_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 3 dagen", id: zone3_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 3 starttijd 1", id: zone3_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 3 starttijd 2", id: zone3_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 3 starttijd 3", id: zone3_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 4 dagen", id: zone4_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 4 starttijd 1", id: zone4_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 4 starttijd 2", id: zone4_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 4 starttijd 3", id: zone4_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 5 dagen", id: zone5_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 5 starttijd 1", id: zone5_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 5 starttijd 2", id: zone5_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 5 starttijd 3", id: zone5_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 6 dagen", id: zone6_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 6 starttijd 1", id: zone6_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 6 starttijd 2", id: zone6_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 6 starttijd 3", id: zone6_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 7 dagen", id: zone7_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 7 starttijd 1", id: zone7_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 7 starttijd 2", id: zone7_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 7 starttijd 3", id: zone7_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 8 dagen", id: zone8_days, icon: mdi:calendar-week, entity_category: config, optimistic: true, restore_value: true, initial_value: "1234567"}
+  - {platform: template, mode: text, name: "Zone 8 starttijd 1", id: zone8_start1, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 8 starttijd 2", id: zone8_start2, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
+  - {platform: template, mode: text, name: "Zone 8 starttijd 3", id: zone8_start3, icon: mdi:clock-outline, entity_category: config, optimistic: true, restore_value: true, initial_value: "--:--"}
 
 sensor:
   - platform: template
@@ -371,6 +481,14 @@ text_sensor:
   - platform: template
     name: "Actieve zone"
     id: active_zone_text
+  - {platform: template, name: "Zone 1 laatste beregening", id: zone1_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start1) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start1); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 2 laatste beregening", id: zone2_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start2) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start2); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 3 laatste beregening", id: zone3_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start3) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start3); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 4 laatste beregening", id: zone4_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start4) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start4); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 5 laatste beregening", id: zone5_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start5) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start5); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 6 laatste beregening", id: zone6_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start6) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start6); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 7 laatste beregening", id: zone7_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start7) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start7); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
+  - {platform: template, name: "Zone 8 laatste beregening", id: zone8_last_run, icon: mdi:history, entity_category: diagnostic, update_interval: 30s, lambda: "if (id(last_start8) == 0) return std::string(\"nooit\"); time_t t = (time_t) id(last_start8); struct tm tmv; localtime_r(&t, &tmv); char b[20]; strftime(b, sizeof(b), \"%Y-%m-%d %H:%M\", &tmv); return std::string(b);"}
 
 script:
   - id: start_zone
@@ -396,6 +514,17 @@ script:
           id(zone_duration_s) = (uint32_t) seconds;
           id(state_text)->publish_state(cycle ? "cycle" : "manual");
           id(active_zone_text)->publish_state(to_string(zone + 1));
+          uint32_t nowt = (uint32_t) ::time(nullptr);
+          switch (zone) {
+            case 0: id(last_start1) = nowt; break;
+            case 1: id(last_start2) = nowt; break;
+            case 2: id(last_start3) = nowt; break;
+            case 3: id(last_start4) = nowt; break;
+            case 4: id(last_start5) = nowt; break;
+            case 5: id(last_start6) = nowt; break;
+            case 6: id(last_start7) = nowt; break;
+            case 7: id(last_start8) = nowt; break;
+          }
       - script.execute: show_home
       - delay: !lambda "return (uint32_t) seconds * 1000;"
       - if:
@@ -467,6 +596,42 @@ script:
           else:
             - lvgl.page.show: page_home_idle
 
+  # Wordt 8x per minuut-tick aangeroepen (één keer per zone) vanuit de
+  # 15s-interval hieronder. Start de zone als vandaag in het dagmasker
+  # zit en een van de 3 starttijden overeenkomt met de huidige minuut.
+  - id: check_zone_schedule
+    parameters:
+      zone: int
+      enabled: boolean
+      days: string
+      start1: string
+      start2: string
+      start3: string
+      runtime_sec: int
+      now_min: int
+      day_bit: int
+    then:
+      - lambda: |-
+          if (id(running) || !enabled) return;
+          bool day_ok = false;
+          for (char c : days) if (c == ('1' + day_bit)) day_ok = true;
+          if (!day_ok) return;
+          std::string slots[3] = {start1, start2, start3};
+          for (int k = 0; k < 3; k++) {
+            size_t c = slots[k].find(':');
+            if (c == std::string::npos) continue;
+            int hh = atoi(slots[k].substr(0, c).c_str());
+            int mm = atoi(slots[k].substr(c + 1).c_str());
+            if (hh < 0 || hh > 23 || mm < 0 || mm > 59) continue;
+            if (hh * 60 + mm == now_min) {
+              int sec = runtime_sec * (int) id(water_budget).state / 100;
+              if (sec < 10) sec = 10;
+              if (sec > 7200) sec = 7200;
+              id(start_zone)->execute(zone, sec, false);
+              return;
+            }
+          }
+
 interval:
   - interval: 1s
     then:
@@ -527,6 +692,39 @@ interval:
       - lvgl.label.update:
           id: lbl_settings_api
           text: !lambda "return id(api_server).is_connected() ? std::string(\"verbonden\") : std::string(\"niet verbonden\");"
+      - lvgl.label.update:
+          id: lbl_settings_raindelay
+          text: !lambda "int rd = (int) id(rain_delay).state; return rd > 0 ? (to_string(rd) + \" dagen\") : std::string(\"uit\");"
+      - lvgl.label.update:
+          id: lbl_settings_budget
+          text: !lambda "return to_string((int) id(water_budget).state) + \"%\";"
+
+  # Elke ~15s: hooguit eens per kalenderminuut de 8 zones langs de planning
+  # leggen (regenstop, dagmasker, starttijden) en zo nodig een zone starten.
+  - interval: 15s
+    then:
+      - lambda: |-
+          time_t now = ::time(nullptr);
+          if (now < 100000) return; // tijd nog niet gesynchroniseerd vanuit Home Assistant
+          struct tm t; localtime_r(&now, &t);
+          if (t.tm_yday != id(last_checked_yday)) {
+            id(last_checked_yday) = t.tm_yday;
+            if (id(rain_delay).state > 0)
+              id(rain_delay).make_call().set_value(id(rain_delay).state - 1).perform();
+          }
+          if (t.tm_min == id(last_checked_minute)) return;
+          id(last_checked_minute) = t.tm_min;
+          if (id(rain_delay).state > 0 || id(running)) return;
+          int now_min = t.tm_hour * 60 + t.tm_min;
+          int day_bit = (t.tm_wday == 0) ? 6 : (t.tm_wday - 1);
+          id(check_zone_schedule)->execute(0, id(zone1_enabled).state, id(zone1_days).state, id(zone1_start1).state, id(zone1_start2).state, id(zone1_start3).state, (int) id(zone1_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(1, id(zone2_enabled).state, id(zone2_days).state, id(zone2_start1).state, id(zone2_start2).state, id(zone2_start3).state, (int) id(zone2_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(2, id(zone3_enabled).state, id(zone3_days).state, id(zone3_start1).state, id(zone3_start2).state, id(zone3_start3).state, (int) id(zone3_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(3, id(zone4_enabled).state, id(zone4_days).state, id(zone4_start1).state, id(zone4_start2).state, id(zone4_start3).state, (int) id(zone4_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(4, id(zone5_enabled).state, id(zone5_days).state, id(zone5_start1).state, id(zone5_start2).state, id(zone5_start3).state, (int) id(zone5_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(5, id(zone6_enabled).state, id(zone6_days).state, id(zone6_start1).state, id(zone6_start2).state, id(zone6_start3).state, (int) id(zone6_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(6, id(zone7_enabled).state, id(zone7_days).state, id(zone7_start1).state, id(zone7_start2).state, id(zone7_start3).state, (int) id(zone7_runtime).state, now_min, day_bit);
+          id(check_zone_schedule)->execute(7, id(zone8_enabled).state, id(zone8_days).state, id(zone8_start1).state, id(zone8_start2).state, id(zone8_start3).state, (int) id(zone8_runtime).state, now_min, day_bit);
 
 ####################################################################
 # Touchscreen-UI (LVGL) — Splash / Home / Zones / Instellingen,
@@ -731,7 +929,11 @@ lvgl:
         - label: {id: lbl_settings_ip, text: "...", text_color: 0xC0C0C0, x: 150, y: 55}
         - label: {text: "Home Assistant", text_color: 0xFFFFFF, x: 20, y: 90}
         - label: {id: lbl_settings_api, text: "...", text_color: 0xC0C0C0, x: 150, y: 90}
-        - label: {text: "Looptijden en broker-instellingen wijzig je in Home Assistant.", text_color: 0xC0C0C0, x: 20, y: 140, width: 440, long_mode: WRAP}
+        - label: {text: "Regenstop", text_color: 0xFFFFFF, x: 20, y: 120}
+        - label: {id: lbl_settings_raindelay, text: "...", text_color: 0xFFA500, x: 150, y: 120}
+        - label: {text: "Waterbudget", text_color: 0xFFFFFF, x: 20, y: 150}
+        - label: {id: lbl_settings_budget, text: "...", text_color: 0xC0C0C0, x: 150, y: 150}
+        - label: {text: "Zone-planning en looptijden wijzig je in Home Assistant.", text_color: 0xC0C0C0, x: 20, y: 178, width: 440, long_mode: WRAP}
         - button:
             x: 20
             y: 205
