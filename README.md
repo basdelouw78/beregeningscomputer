@@ -209,18 +209,20 @@ ingebouwd (zie "Planning & automatisering" hierboven).
 ### Bouwen/flashen
 ```
 cd esphome
-cp secrets.yaml.example secrets.yaml   # vul AP/OTA/API-gegevens in — GEEN wifi hier
 esphome run rainmaster.yaml
 ```
+Geen `secrets.yaml` nodig — `rainmaster.yaml` bevat bewust geen enkel
+geheim (geen wifi-wachtwoord, geen API-sleutel, geen OTA-wachtwoord). Zie
+"Automatische updates via GitHub" hieronder voor waarom dat zo is.
 
 **Eerste keer wifi instellen** (ook na de allereerste flash, of als je ooit
-van wifi-netwerk wisselt): `rainmaster.yaml` bevat bewust géén wifi-ssid/
--wachtwoord. Na het flashen zet het apparaat zelf een tijdelijk toegangspunt
-op (`RainMaster-Fallback`, wachtwoord uit `ap_password`). Verbind daarmee,
-volg het configuratieschermpje (captive portal) dat vanzelf opent, en vul
-daar je eigen wifi-netwerk in. Dat wordt op het apparaat zelf opgeslagen
-(niet in de firmware) en overleeft toekomstige firmware-updates — je hoeft
-dit dus maar één keer te doen.
+van wifi-netwerk wisselt): na het flashen zet het apparaat zelf een
+tijdelijk toegangspunt op (`RainMaster-Fallback`, wachtwoord `12345678` —
+te wijzigen in `rainmaster.yaml` onder `wifi: ap:`). Verbind daarmee, volg
+het configuratieschermpje (captive portal) dat vanzelf opent, en vul daar
+je eigen wifi-netwerk in. Dat wordt op het apparaat zelf opgeslagen (niet
+in de firmware) en overleeft toekomstige firmware-updates — je hoeft dit
+dus maar één keer te doen.
 
 **Belangrijk vóór het flashen:**
 - De SPI-pinnen in de `substitutions:`-sectie bovenaan
@@ -251,27 +253,29 @@ bijvoorbeeld watermeter-kits en andere gedeelde ESPHome-projecten dit doen.
 3. Is de versie in het manifest nieuwer? Dan haalt het apparaat zelf
    `rainmaster.bin` op en flasht dat (via `ota: platform: http_request`).
 
-**Waarom dit veilig is om publiek te hosten:** zoals hierboven beschreven
-bevat `rainmaster.yaml` bewust geen wifi-wachtwoord — dat wordt pas ná het
-flashen, lokaal op het apparaat, ingesteld via het captive portal. De
-gecompileerde firmware bevat dus geen van jouw geheimen, en kan zonder risico
-in deze (publieke) repository staan.
+**Waarom dit veilig is om publiek te hosten — en waarom er geen secrets
+nodig zijn:** `rainmaster.yaml` bevat bewust geen enkel geheim:
+- **Wifi** wordt pas ná het flashen, lokaal op het apparaat, ingesteld via
+  het captive portal (zie hierboven) — nooit gecompileerd.
+- **De native Home Assistant-API en lokale OTA-pushes** draaien zonder
+  wachtwoord/versleuteling. Dat klinkt spannend, maar is de gangbare aanpak
+  bij gedeelde/kit-achtige ESPHome-projecten (zoals watermeter-kits): deze
+  zijn toch alleen op je eigen lokale netwerk bereikbaar, dat is hier de
+  vertrouwensgrens — niet een geheime sleutel. Wil je dat liever wél
+  beveiligen, voeg dan zelf `encryption:`/`password:` toe in respectievelijk
+  `api:` en `ota:` (zie de comments daar in `rainmaster.yaml`).
+- Het **tijdelijke wifi-toegangspunt** gebruikt een vast, in de code
+  ingebakken standaardwachtwoord (`12345678`, zelfde als de custom
+  C++-firmware) in plaats van een geheim — dat AP staat toch maar kort aan.
 
-**Eenmalig instellen** (daarna volledig automatisch): voeg in deze
-GitHub-repository onder **Settings → Secrets and variables → Actions → New
-repository secret** de volgende drie secrets toe — zelfde waarden als in je
-lokale `esphome/secrets.yaml`:
+Dus: **iedereen die deze repo gebruikt of forkt kan de workflow direct laten
+draaien, zonder eerst zelf iets in te stellen** — dat is met opzet zo, zodat
+niemand per ongeluk een geheime waarde van iemand anders hergebruikt of
+hoeft te beheren. Elke push naar `main` publiceert automatisch een nieuwe
+release, en elk RainMaster-apparaat haalt die zelf op.
 
-| Secret-naam | Waarde |
-|---|---|
-| `AP_PASSWORD` | wachtwoord voor het tijdelijke wifi-toegangspunt |
-| `OTA_PASSWORD` | wachtwoord voor lokale (niet-GitHub) OTA-updates |
-| `API_ENCRYPTION_KEY` | de 32-byte base64 API-sleutel voor Home Assistant |
-
-Daarna publiceert elke push naar `main` automatisch een nieuwe release, en
-haalt elk RainMaster-apparaat dat zelf op. Heb je deze repo geforkt of
-hernoemd? Pas dan ook `firmware_manifest_url` in `rainmaster.yaml`
-(`substitutions:`) aan naar `<jouw-gebruikersnaam>/<jouw-repo>`.
+Heb je deze repo geforkt of hernoemd? Pas dan `firmware_manifest_url` in
+`rainmaster.yaml` (`substitutions:`) aan naar `<jouw-gebruikersnaam>/<jouw-repo>`.
 
 Dit is een uitgebreide, met zorg opgebouwde configuratie, maar **nog niet
 getest op echte hardware** (er was geen ESPHome-toolchain beschikbaar in de
