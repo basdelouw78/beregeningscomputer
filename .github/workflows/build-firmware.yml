@@ -1,0 +1,119 @@
+name: Build en publiceer RainMaster-firmware
+
+# Compileert de ESPHome-firmware en publiceert een GitHub Release met:
+#   - rainmaster.bin  (het gecompileerde app-image)
+#   - manifest.json   (ESP Web Tools-formaat; hier leest het apparaat zelf
+#                       uit of er een update beschikbaar is, via
+#                       update: platform: http_request in rainmaster.yaml)
+#
+# Waarom dit veilig is om in deze PUBLIEKE repo te publiceren: rainmaster.yaml
+# bevat bewust GEEN wifi-wachtwoord (zie de toelichting bij wifi: in dat
+# bestand) — de gecompileerde firmware bevat dus geen van jouw geheimen.
+#
+# Eenmalige instelling: voeg deze drie secrets toe onder
+# Settings -> Secrets and variables -> Actions -> New repository secret:
+#   AP_PASSWORD          wachtwoord voor het tijdelijke wifi-toegangspunt
+#   OTA_PASSWORD          wachtwoord voor lokale (niet-GitHub) OTA-updates
+#   API_ENCRYPTION_KEY    32-byte base64 sleutel voor de Home Assistant-API
+# (zelfde waarden als in je lokale esphome/secrets.yaml)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "esphome/**"
+      - ".github/workflows/build-firmware.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installeer ESPHome
+        run: pip install esphome
+
+      - name: Stel secrets.yaml samen uit GitHub Actions secrets
+        working-directory: esphome
+        env:
+          AP_PASSWORD: ${{ secrets.AP_PASSWORD }}
+          OTA_PASSWORD: ${{ secrets.OTA_PASSWORD }}
+          API_ENCRYPTION_KEY: ${{ secrets.API_ENCRYPTION_KEY }}
+        run: |
+          if [ -z "$AP_PASSWORD" ] || [ -z "$OTA_PASSWORD" ] || [ -z "$API_ENCRYPTION_KEY" ]; then
+            echo "::error::Ontbrekende repository secret(s). Zet AP_PASSWORD, OTA_PASSWORD en API_ENCRYPTION_KEY onder Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          cat > secrets.yaml <<EOF
+          ap_password: "${AP_PASSWORD}"
+          ota_password: "${OTA_PASSWORD}"
+          api_encryption_key: "${API_ENCRYPTION_KEY}"
+          EOF
+
+      - name: Compileer firmware
+        working-directory: esphome
+        run: esphome compile rainmaster.yaml
+
+      - name: Zoek het gecompileerde .bin-bestand
+        id: find_bin
+        working-directory: esphome
+        run: |
+          BIN_PATH=$(find .esphome/build -type f -iname "*.bin" -printf '%s %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
+          if [ -z "$BIN_PATH" ]; then
+            echo "::error::Geen .bin-bestand gevonden onder esphome/.esphome/build — build-output-structuur is mogelijk gewijzigd."
+            find .esphome/build -type f | head -50
+            exit 1
+          fi
+          echo "Gevonden: $BIN_PATH ($(stat -c%s "$BIN_PATH") bytes)"
+          echo "bin_path=$BIN_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Bepaal versie en release-tag
+        id: version
+        run: |
+          VERSION="$(date +%Y.%m.%d)-${{ github.run_number }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=fw-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Stel release-bestanden samen (bin + manifest.json)
+        working-directory: esphome
+        run: |
+          mkdir -p ../release
+          cp "${{ steps.find_bin.outputs.bin_path }}" ../release/rainmaster.bin
+          MD5=$(md5sum ../release/rainmaster.bin | cut -d' ' -f1)
+          cat > ../release/manifest.json <<EOF
+          {
+            "name": "RainMaster",
+            "version": "${{ steps.version.outputs.version }}",
+            "home_assistant_domain": "esphome",
+            "new_install_prompt_erase": false,
+            "builds": [
+              {
+                "chipFamily": "ESP32-S3",
+                "ota": {
+                  "path": "rainmaster.bin",
+                  "md5": "${MD5}"
+                }
+              }
+            ]
+          }
+          EOF
+
+      - name: Publiceer GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            release/rainmaster.bin release/manifest.json \
+            --title "RainMaster firmware ${{ steps.version.outputs.version }}" \
+            --notes "Automatisch gebouwd vanuit commit ${{ github.sha }}." \
+            --latest
