@@ -1,0 +1,119 @@
+<%- include('partials/header') %>
+<%
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond';
+  const todayLong = DAYS[today - 1].long;
+%>
+<div class="hello">
+  <h1><%= greet %>, <%= user.name.split(' ')[0] %> 👋</h1>
+  <p>Het is <%= todayLong %> <%= formatDate(todayISO(), false) %>.</p>
+</div>
+
+<div class="tiles">
+  <a class="tile t-teal" href="/materialen">
+    <span class="tile-ic"><%- icon('box') %></span>
+    <strong>Materialen uitlenen</strong>
+    <span class="meta"><%= stats.available %> beschikbaar<% if (stats.myLoans) { %> · <%= stats.myLoans %> door jou geleend<% } %></span>
+  </a>
+  <a class="tile t-blue" href="/meetings">
+    <span class="tile-ic"><%- icon('calendar') %></span>
+    <strong>Meeting plannen</strong>
+    <span class="meta"><%= stats.meetings %> gepland</span>
+  </a>
+  <a class="tile t-amber" href="/vragen">
+    <span class="tile-ic"><%- icon('help') %></span>
+    <strong>Vragen &amp; antwoorden</strong>
+    <span class="meta"><%= stats.openQuestions %> open vra<%= stats.openQuestions === 1 ? 'ag' : 'gen' %></span>
+  </a>
+  <a class="tile t-rose" href="/tutorials">
+    <span class="tile-ic"><%- icon('tool') %></span>
+    <strong>Tutorials</strong>
+    <span class="meta"><%= stats.tutorials %> handleiding<%= stats.tutorials === 1 ? '' : 'en' %></span>
+  </a>
+  <a class="tile t-violet" href="/collegas">
+    <span class="tile-ic"><%- icon('users') %></span>
+    <strong>Collega's</strong>
+    <span class="meta">Wie werkt waar?</span>
+  </a>
+  <a class="tile t-slate" href="/setup">
+    <span class="tile-ic"><%- icon('pin') %></span>
+    <strong>Mijn locaties</strong>
+    <span class="meta">Dagen &amp; tijden wijzigen</span>
+  </a>
+</div>
+
+<div class="grid grid-2">
+  <section class="card">
+    <div class="card-title"><h2>Vandaag aanwezig</h2><span class="badge primary"><%= todayLong %></span></div>
+    <% if (!presentToday.length) { %>
+      <p class="muted">Vandaag staat er niemand ingeroosterd.</p>
+    <% } else { %>
+      <ul class="list">
+        <% presentToday.forEach(p => { %>
+          <li>
+            <span class="avatar sm"><%= initials(p.user_name) %></span>
+            <span class="grow">
+              <span class="title"><%= p.user_name %><%= p.user_id === user.id ? ' (jij)' : '' %></span>
+              <span class="small muted"><%= p.school_name %> · <%= p.start_time %>–<%= p.end_time %></span>
+            </span>
+            <% if (p.phone && p.user_id !== user.id) { %>
+              <a class="btn secondary sm" href="tel:<%= p.phone.replace(/[^\d+]/g, '') %>" aria-label="Bel <%= p.user_name %>"><%- icon('phone') %></a>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>Mijn rooster</h2><a class="small" href="/setup">Wijzigen</a></div>
+    <ul class="list">
+      <% mySchedule.forEach(loc => { const byDay = Object.fromEntries(loc.days.map(d => [d.day, d])); %>
+        <li style="flex-direction:column;align-items:stretch;gap:.4rem">
+          <span class="title"><%- icon('school') %> <%= loc.school_name %></span>
+          <div class="day-pills">
+            <% DAYS.slice(0, 5).concat(DAYS.slice(5).filter(d => byDay[d.n])).forEach(d => { %>
+              <span class="day-pill <%= byDay[d.n] ? 'on' : '' %> <%= d.n === today ? 'today' : '' %>" title="<%= byDay[d.n] ? byDay[d.n].start_time + '–' + byDay[d.n].end_time : 'vrij' %>"><%= d.short %></span>
+            <% }) %>
+          </div>
+          <span class="small muted"><%= loc.days.map(d => DAYS[d.day - 1].short + ' ' + d.start_time + '–' + d.end_time).join(' · ') %></span>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>Volgende meeting</h2><a class="small" href="/meetings">Alles</a></div>
+    <% if (nextMeeting) { const [y, m, d] = nextMeeting.date.split('-'); %>
+      <div class="meeting">
+        <div class="date-box"><span class="d"><%= Number(d) %></span><span class="m"><%= formatDate(nextMeeting.date, false).split(' ')[1] %></span></div>
+        <div>
+          <strong><%= nextMeeting.title %></strong>
+          <div class="small muted"><%= formatDate(nextMeeting.date) %> · <%= nextMeeting.start_time %><%= nextMeeting.end_time ? '–' + nextMeeting.end_time : '' %></div>
+          <% if (nextMeeting.place) { %><div class="small muted"><%- icon('pin') %> <%= nextMeeting.place %></div><% } %>
+        </div>
+      </div>
+    <% } else { %>
+      <p class="muted">Er is nog niets gepland.</p>
+      <a class="btn secondary sm" href="/meetings#nieuw"><%- icon('plus') %> Meeting plannen</a>
+    <% } %>
+  </section>
+
+  <section class="card">
+    <div class="card-title"><h2>Nieuwste vragen</h2><a class="small" href="/vragen">Alles</a></div>
+    <% if (!latestQuestions.length) { %>
+      <p class="muted">Nog geen vragen gesteld.</p>
+    <% } else { %>
+      <ul class="list">
+        <% latestQuestions.forEach(q => { %>
+          <li><a class="row-link" href="/vragen/<%= q.id %>">
+            <span class="grow"><span class="title"><%= q.title %></span>
+              <span class="small muted"><%= q.user_name || 'Onbekend' %> · <%= timeAgo(q.created_at) %></span></span>
+            <% if (q.solved) { %><span class="badge ok">Opgelost</span><% } else { %><span class="badge"><%= q.answer_count %> antw.</span><% } %>
+          </a></li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </section>
+</div>
+<%- include('partials/footer') %>

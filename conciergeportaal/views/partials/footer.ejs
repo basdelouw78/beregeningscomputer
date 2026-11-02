@@ -1,0 +1,21 @@
+  </main>
+</div>
+<% if (user && user.setup_done) { %>
+<nav class="tabbar" aria-label="Snelmenu">
+  <% [
+    { href: '/', label: 'Home', icon: 'home' },
+    { href: '/materialen', label: 'Materiaal', icon: 'box' },
+    { href: '/meetings', label: 'Meetings', icon: 'calendar' },
+    { href: '/vragen', label: 'Vragen', icon: 'help' },
+    { href: '/tutorials', label: 'Tutorials', icon: 'tool' },
+  ].forEach(item => { const active = item.href === '/' ? path === '/' : path.startsWith(item.href); %>
+    <a href="<%= item.href %>" class="<%= active ? 'active' : '' %>" <%- active ? 'aria-current="page"' : '' %>><%- icon(item.icon) %><span><%= item.label %></span></a>
+  <% }) %>
+</nav>
+<% } %>
+<% if (typeof useMap !== 'undefined' && useMap) { %>
+<script src="/vendor/leaflet/leaflet.js"></script>
+<% } %>
+<script src="/app.js"></script>
+</body>
+</html>

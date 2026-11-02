@@ -1,0 +1,72 @@
+<%- include('partials/header', { useMap: true, bodyClass: user.setup_done ? '' : 'setup-page' }) %>
+<% if (!user.setup_done) { %>
+  <div class="steps-bar" aria-hidden="true"><div class="on"></div><div class="on"></div><div></div></div>
+<% } %>
+<div class="page-head">
+  <div>
+    <h1><%= user.setup_done ? 'Mijn locaties & tijden' : 'Waar werk jij?' %></h1>
+    <p>Tik op de kaart (of in de lijst) op de school of scholen waar je werkt. Geef daarna per school aan op welke dagen en tijden je er bent.</p>
+  </div>
+</div>
+
+<% if (errors.length) { %>
+  <div class="flash error" role="alert"><%- icon('alert') %>
+    <ul><% errors.forEach(e => { %><li><%= e %></li><% }) %></ul>
+  </div>
+<% } %>
+
+<form method="post" action="/setup" id="setup-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <section class="card">
+    <div class="card-title"><h2>1. Kies je school</h2><span class="badge primary" id="sel-count">0 gekozen</span></div>
+    <div id="setup-map" class="map" role="application" aria-label="Kaart met alle scholen"></div>
+    <div class="school-pick">
+      <% schools.forEach(s => { %>
+        <label class="school-option">
+          <input type="checkbox" name="schools" value="<%= s.id %>" data-school="<%= s.id %>" <%= current[s.id] ? 'checked' : '' %>>
+          <span class="check"><%- icon('check') %></span>
+          <span><%= s.name %><% if (s.address) { %><span class="addr"><%= s.address %></span><% } %></span>
+        </label>
+      <% }) %>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Dagen en tijden</h2>
+    <p class="muted small" id="no-school-hint">Kies eerst een school hierboven.</p>
+    <% schools.forEach(s => { const cur = current[s.id] || {}; %>
+      <div class="schedule-block" data-block="<%= s.id %>" <%= current[s.id] ? '' : 'hidden' %>>
+        <h3><%- icon('school') %> <%= s.name %></h3>
+        <% DAYS.forEach(d => { const on = Boolean(cur[d.n]); const t = cur[d.n] || { start: '07:30', end: '16:30' }; %>
+          <div class="day-row">
+            <label class="day-toggle">
+              <span class="switch">
+                <input type="checkbox" name="s<%= s.id %>_d<%= d.n %>_on" value="1" data-day-toggle <%= on ? 'checked' : '' %>>
+                <span></span>
+              </span>
+              <span style="text-transform: capitalize"><%= d.long %></span>
+            </label>
+            <div class="day-times" <%= on ? '' : 'hidden' %>>
+              <input type="time" name="s<%= s.id %>_d<%= d.n %>_start" value="<%= t.start %>" aria-label="Begintijd <%= d.long %>" step="300">
+              <span class="muted">tot</span>
+              <input type="time" name="s<%= s.id %>_d<%= d.n %>_end" value="<%= t.end %>" aria-label="Eindtijd <%= d.long %>" step="300">
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% }) %>
+  </section>
+
+  <div class="sticky-actions">
+    <button class="btn block" type="submit"><%- icon('check') %> <%= user.setup_done ? 'Opslaan' : 'Klaar, naar de hoofdpagina' %></button>
+  </div>
+</form>
+<% if (!user.setup_done) { %>
+<form method="post" action="/logout" style="text-align:center;margin-top:1rem">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <button class="btn ghost sm" type="submit"><%- icon('logout') %> Uitloggen</button>
+</form>
+<% } %>
+<script type="application/json" id="schools-data"><%- json(schools) %></script>
+<%- include('partials/footer', { useMap: true }) %>

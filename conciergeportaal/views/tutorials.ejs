@@ -1,0 +1,40 @@
+<%- include('partials/header') %>
+<div class="page-head">
+  <div><h1>Tutorials</h1><p>Handleidingen en oplossingen van collega's: zo repareer je het.</p></div>
+</div>
+
+<div class="chip-scroll" role="navigation" aria-label="Categorieën">
+  <a class="chip <%= !category ? 'active' : '' %>" href="/tutorials">Alles</a>
+  <% categories.forEach(c => { %>
+    <a class="chip <%= category === c ? 'active' : '' %>" href="/tutorials?categorie=<%= encodeURIComponent(c) %>"><%= c %></a>
+  <% }) %>
+</div>
+
+<div class="search">
+  <%- icon('search') %>
+  <input type="search" placeholder="Zoek een tutorial…" data-filter=".tut-card" aria-label="Zoek een tutorial">
+</div>
+
+<% if (!tutorials.length) { %>
+  <div class="card empty"><%- icon('tool') %><p>Nog geen tutorials<%= category ? ' in deze categorie' : '' %>. Deel jouw kennis!</p>
+    <a class="btn" href="/tutorials/nieuw"><%- icon('upload') %> Tutorial uploaden</a></div>
+<% } %>
+
+<div class="tut-grid">
+  <% tutorials.forEach(t => { %>
+    <a class="card tut-card" href="/tutorials/<%= t.id %>" data-text="<%= (t.title + ' ' + t.description + ' ' + t.category).toLowerCase() %>">
+      <div class="tut-cover">
+        <% if (t.cover) { %><img src="/tutorials/bestand/<%= t.cover %>" alt="" loading="lazy"><% } else { %><%- icon('tool') %><% } %>
+      </div>
+      <div class="tut-body">
+        <span><span class="badge primary"><%= t.category %></span></span>
+        <h3><%= t.title %></h3>
+        <% if (t.description) { %><p class="small muted" style="margin:0"><%= t.description.length > 110 ? t.description.slice(0, 110) + '…' : t.description %></p><% } %>
+        <span class="meta"><%= t.user_name || 'Onbekend' %> · <%= timeAgo(t.created_at) %><%= t.file_count ? ' · ' + t.file_count + ' bijlage' + (t.file_count === 1 ? '' : 'n') : '' %></span>
+      </div>
+    </a>
+  <% }) %>
+</div>
+
+<a class="fab" href="/tutorials/nieuw"><%- icon('upload') %> Uploaden</a>
+<%- include('partials/footer') %>

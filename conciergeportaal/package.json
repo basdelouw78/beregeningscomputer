@@ -1,0 +1,22 @@
+{
+  "name": "conciergeportaal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portaal voor conciërges van de scholen binnen de organisatie",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "ejs": "^7.0.2",
+    "express": "^4.22.3",
+    "express-session": "^1.19.0",
+    "leaflet": "^1.9.4",
+    "multer": "^2.0.2"
+  }
+}
