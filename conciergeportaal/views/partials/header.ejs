@@ -45,7 +45,7 @@
     <a class="avatar" href="/profiel" title="Mijn profiel" aria-label="Mijn profiel"><%= initials(user.name) %></a>
   <% } %>
 </header>
-<div class="layout">
+<div class="layout<%= showNav ? '' : ' no-nav' %>">
   <% if (showNav) { %>
   <nav class="sidebar" aria-label="Hoofdmenu">
     <% navItems.forEach(item => { %>
@@ -60,8 +60,6 @@
       <button class="btn ghost block" type="submit"><%- icon('logout') %> Uitloggen</button>
     </form>
   </nav>
-  <% } else { %>
-  <div></div>
   <% } %>
   <main class="content">
     <% flash.forEach(f => { %>

@@ -146,6 +146,8 @@ main.content {
   }
   .sidebar a:hover { background: var(--surface-2); text-decoration: none; }
   .sidebar a.active { background: var(--primary-soft); color: var(--primary-strong); font-weight: 650; }
+  .layout.no-nav { grid-template-columns: 1fr; }
+  .chip-scroll { flex-wrap: wrap; overflow: visible; margin: 0 0 1rem; padding: 0; }
   .sidebar .sep { height: 1px; background: var(--border); margin: .6rem .4rem; }
   .sidebar form { margin-top: auto; }
   main.content { padding: 2rem 2rem 3rem; }
